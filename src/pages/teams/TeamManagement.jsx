@@ -190,7 +190,7 @@ const TeamManagement = () => {
         isOpen={showSuccessModal}
         onClose={() => setShowSuccessModal(false)}
         title="Member Added Successfully"
-        message="Sent an email with login details to the new member"
+        message="The member's account is active. Share the password you set with them so they can log in."
       />
 
       {/* Delete Confirmation Modal */}

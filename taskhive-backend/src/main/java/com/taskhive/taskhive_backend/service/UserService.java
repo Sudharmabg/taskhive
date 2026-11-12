@@ -54,11 +54,14 @@ public class UserService {
             }
         }
         
-        // Set default password if not provided
-        if (user.getPassword() == null || user.getPassword().isEmpty()) {
-            user.setPassword(passwordEncoder.encode("password123"));
-        }
-        
+        // Encode the password. Admins may supply one (shared directly with the
+        // member); otherwise fall back to a default. The incoming value is always
+        // raw at this point, so encode it here to avoid storing plaintext.
+        String rawPassword = (user.getPassword() == null || user.getPassword().isEmpty())
+                ? "password123"
+                : user.getPassword();
+        user.setPassword(passwordEncoder.encode(rawPassword));
+
         // Set default status
         if (user.getStatus() == null) {
             user.setStatus(User.Status.ACTIVE);

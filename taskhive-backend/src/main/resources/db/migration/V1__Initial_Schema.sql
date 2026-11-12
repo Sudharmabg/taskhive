@@ -29,7 +29,7 @@ CREATE TABLE users (
     email VARCHAR(100) UNIQUE NOT NULL,
     password VARCHAR(255),
     designation VARCHAR(100),
-    job_role VARCHAR(20) CHECK (job_role IN ('UI', 'BE', 'QA', 'DevOps')),
+    job_role VARCHAR(20) CHECK (job_role IN ('UI', 'BE', 'QA', 'DevOps', 'FullStack', 'AI')),
     team_id BIGINT REFERENCES teams(id),
     role VARCHAR(20) DEFAULT 'USER' CHECK (role IN ('ADMIN', 'USER')),
     status VARCHAR(20) DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'ACTIVE', 'INACTIVE')),

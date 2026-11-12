@@ -14,7 +14,8 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSubmit, teams = [] }) => {
     email: '',
     designation: '',
     jobRole: '',
-    team: ''
+    team: '',
+    password: ''
   });
 
   const [errors, setErrors] = useState({});
@@ -76,7 +77,8 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSubmit, teams = [] }) => {
         email: '',
         designation: '',
         jobRole: '',
-        team: ''
+        team: '',
+        password: ''
       });
     }
   };
@@ -147,6 +149,8 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSubmit, teams = [] }) => {
               <option value="BE">BE</option>
               <option value="QA">QA</option>
               <option value="DevOps">DevOps</option>
+              <option value="FullStack">Full Stack Developer</option>
+              <option value="AI">AI</option>
             </select>
             {errors.jobRole && (
               <p className="mt-1 text-sm text-red-400">{errors.jobRole}</p>
@@ -175,6 +179,21 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSubmit, teams = [] }) => {
               <p className="mt-1 text-sm text-red-400">{errors.team}</p>
             )}
           </div>
+        </div>
+
+        <div>
+          <Input
+            label="Password"
+            name="password"
+            type="text"
+            value={formData.password}
+            onChange={handleInputChange}
+            error={errors.password}
+            placeholder="Set a password to share with the member"
+          />
+          <p className="mt-1 text-xs text-gray-400">
+            Share this password with the member so they can log in. Leave blank to use the default (password123). The member's account is activated immediately.
+          </p>
         </div>
 
         <div className="flex justify-end space-x-3 pt-4">

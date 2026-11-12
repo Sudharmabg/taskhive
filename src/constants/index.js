@@ -23,7 +23,9 @@ export const JOB_ROLES = {
   UI: 'UI',
   BE: 'BE',
   QA: 'QA',
-  DEVOPS: 'DevOps'
+  DEVOPS: 'DevOps',
+  FULLSTACK: 'FullStack',
+  AI: 'AI'
 };
 
 export const PRIORITY_COLORS = {

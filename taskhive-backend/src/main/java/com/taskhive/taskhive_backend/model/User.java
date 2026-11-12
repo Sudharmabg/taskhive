@@ -72,7 +72,7 @@ public class User {
     private LocalDateTime updatedAt;
     
     public enum JobRole {
-        UI, BE, QA, DevOps
+        UI, BE, QA, DevOps, FullStack, AI
     }
     
     public enum Role {
