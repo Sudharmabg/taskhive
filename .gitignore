@@ -8,6 +8,10 @@ yarn-error.log*
 build/
 dist/
 
+# Spring Boot configuration
+taskhive-backend/src/main/resources/application.properties
+
+
 # Environment variables
 .env
 .env.local
