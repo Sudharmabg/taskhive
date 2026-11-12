@@ -67,7 +67,18 @@ public class UserController {
             if (jobRoleStr != null) {
                 user.setJobRole(User.JobRole.valueOf(jobRoleStr));
             }
-            
+
+            // Set admin-provided password (shared directly with the member).
+            // Left blank -> UserService applies a default. The raw value is
+            // encoded in UserService before persisting.
+            String password = (String) userData.get("password");
+            if (password != null && !password.isBlank()) {
+                user.setPassword(password);
+            }
+
+            // Members onboarded by an admin are active immediately
+            user.setStatus(User.Status.ACTIVE);
+
             // Set company ID on user
             user.setCompany(new com.taskhive.taskhive_backend.model.Company());
             user.getCompany().setId(companyId);
