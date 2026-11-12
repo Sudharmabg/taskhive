@@ -103,10 +103,7 @@ public class AuthController {
                 User user = userOpt.get();
                 
                 // Verify password
-                log.info("Stored password hash: {}", user.getPassword());
-                log.info("Input password: {}", password);
                 boolean passwordMatch = passwordEncoder.matches(password, user.getPassword());
-                log.info("Password match result: {}", passwordMatch);
                 
                 if (passwordMatch) {
                     log.info("Login successful for user: {}", username);
