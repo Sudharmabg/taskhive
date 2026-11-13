@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
-import { SearchIcon, BellIcon, LogoutIcon } from '@heroicons/react/outline';
+import { SearchIcon, LogoutIcon } from '@heroicons/react/outline';
 
 /**
- * Topbar component with search, notifications, and user profile
+ * Topbar component with search and user profile
  * Displays at the top of authenticated pages
  */
 const Topbar = () => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [showNotifications, setShowNotifications] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
 
   // TODO: Replace with actual user data
@@ -21,11 +20,6 @@ const Topbar = () => {
     localStorage.removeItem('user');
     window.location.href = '/';
   };
-
-  const notifications = [
-    { id: 1, message: 'New task assigned to you', time: '5 min ago' },
-    { id: 2, message: 'Team meeting in 30 minutes', time: '25 min ago' },
-  ];
 
   return (
     <header className="bg-gray-800 shadow-sm border-b border-gray-700">
@@ -47,38 +41,6 @@ const Topbar = () => {
 
         {/* Right Section */}
         <div className="flex items-center space-x-4">
-          {/* Notifications */}
-          <div className="relative">
-            <button
-              onClick={() => setShowNotifications(!showNotifications)}
-              className="p-2 text-gray-400 hover:text-white relative"
-            >
-              <BellIcon className="h-6 w-6" />
-              {notifications.length > 0 && (
-                <span className="absolute -top-1 -right-1 h-4 w-4 text-black text-xs rounded-full flex items-center justify-center" style={{ backgroundColor: '#ffc44d' }}>
-                  {notifications.length}
-                </span>
-              )}
-            </button>
-
-            {/* Notifications Dropdown */}
-            {showNotifications && (
-              <div className="absolute right-0 mt-2 w-80 bg-gray-800 rounded-lg shadow-lg border border-gray-700 z-50">
-                <div className="p-4 border-b border-gray-700">
-                  <h3 className="text-sm font-medium text-white">Notifications</h3>
-                </div>
-                <div className="max-h-64 overflow-y-auto">
-                  {notifications.map((notification) => (
-                    <div key={notification.id} className="p-4 border-b border-gray-700 hover:bg-gray-700">
-                      <p className="text-sm text-gray-200">{notification.message}</p>
-                      <p className="text-xs text-gray-400 mt-1">{notification.time}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
           {/* User Info */}
           <div className="relative">
             <button
