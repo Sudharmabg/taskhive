@@ -1,6 +1,7 @@
 import React from 'react';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
+import AttachmentsSection from '../common/AttachmentsSection';
 import { 
   CalendarIcon, 
   UserIcon, 
@@ -167,7 +168,8 @@ const TaskDetailsModal = ({ isOpen, onClose, task, onEdit }) => {
           </div>
         </div>
 
-
+        {/* Attachments */}
+        {task.id && <AttachmentsSection storyId={task.id} />}
 
         {/* Actions */}
         <div className="flex justify-end space-x-3 pt-4 border-t border-gray-700">

@@ -179,6 +179,60 @@ class ApiService {
     });
   }
 
+  // Attachment endpoints (Epic / Task / Bug)
+  getAttachments(storyId) {
+    return this.request(`/stories/${storyId}/attachments`);
+  }
+
+  async uploadAttachments(storyId, files) {
+    const formData = new FormData();
+    files.forEach(file => formData.append('files', file));
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    if (user.name) formData.append('uploadedBy', user.name);
+
+    const token = localStorage.getItem('authToken');
+    // Let the browser set the multipart Content-Type (with boundary)
+    const response = await fetch(`${this.baseURL}/stories/${storyId}/attachments`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    if (!response.ok) {
+      let message = `API Error: ${response.status}`;
+      try {
+        const body = await response.json();
+        if (body.message) message = body.message;
+      } catch (_) { /* ignore */ }
+      throw new Error(message);
+    }
+    return response.json();
+  }
+
+  async downloadAttachment(attachment) {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`${this.baseURL}/attachments/${attachment.id}/download`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!response.ok) {
+      throw new Error(`API Error: ${response.status}`);
+    }
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = attachment.fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  deleteAttachment(attachmentId) {
+    return this.request(`/attachments/${attachmentId}`, {
+      method: 'DELETE',
+    });
+  }
+
   // Analytics endpoints
   getDashboardStats() {
     return this.request('/analytics/dashboard');

@@ -2,11 +2,13 @@ package com.taskhive.taskhive_backend.service.impl;
 
 import com.taskhive.taskhive_backend.model.Story;
 import com.taskhive.taskhive_backend.model.Company;
+import com.taskhive.taskhive_backend.repository.AttachmentRepository;
 import com.taskhive.taskhive_backend.repository.StoryRepository;
 import com.taskhive.taskhive_backend.repository.CompanyRepository;
 import com.taskhive.taskhive_backend.service.StoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -16,6 +18,7 @@ public class StoryServiceImpl implements StoryService {
     
     private final StoryRepository storyRepository;
     private final CompanyRepository companyRepository;
+    private final AttachmentRepository attachmentRepository;
     
     @Override
     public List<Story> getAllStoriesByCompany(Long companyId) {
@@ -91,7 +94,9 @@ public class StoryServiceImpl implements StoryService {
     }
     
     @Override
+    @Transactional
     public void deleteStory(Long id) {
+        attachmentRepository.deleteByStoryId(id);
         storyRepository.deleteById(id);
     }
     

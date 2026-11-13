@@ -3,6 +3,7 @@ import Button from '../common/Button';
 import Input from '../common/Input';
 import Modal from '../common/Modal';
 import apiService from '../../services/api';
+import AttachmentsSection from '../common/AttachmentsSection';
 
 
 /**
@@ -32,6 +33,9 @@ const AddStoryModal = ({ isOpen, onClose, onSubmit, story = null, defaultType = 
 
   });
 
+  const [pendingFiles, setPendingFiles] = useState([]);
+  // Epics are assigned to the whole team, so they have no individual assignees
+  const isEpic = (defaultType || formData.type || '').toLowerCase() === 'epic';
   const [errors, setErrors] = useState({});
   const [users, setUsers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
@@ -81,7 +85,7 @@ const AddStoryModal = ({ isOpen, onClose, onSubmit, story = null, defaultType = 
       newErrors.title = 'Title is required';
     }
     
-    if (formData.assignedTo.length === 0) {
+    if (!isEpic && formData.assignedTo.length === 0) {
       newErrors.assignedTo = 'Please assign the story to at least one person';
     }
     
@@ -103,10 +107,11 @@ const AddStoryModal = ({ isOpen, onClose, onSubmit, story = null, defaultType = 
       // Send values as-is to match database constraints
       const submitData = {
         ...formData,
-        assigneeName: formData.assignedTo.join(', '), // Join multiple users with comma
+        assigneeName: isEpic ? 'Whole Team' : formData.assignedTo.join(', '), // Join multiple users with comma
         assignedTo: undefined, // Remove assignedTo array
         priority: formData.priority || null,
-        status: formData.status || null
+        status: formData.status || null,
+        newAttachments: pendingFiles // uploaded after the story is saved
       };
       console.log('Calling onSubmit with data:', submitData);
       onSubmit(submitData);
@@ -121,6 +126,7 @@ const AddStoryModal = ({ isOpen, onClose, onSubmit, story = null, defaultType = 
         storyPoints: '',
         acceptanceCriteria: ''
       });
+      setPendingFiles([]);
     } else {
       console.log('Validation failed, form not submitted');
     }
@@ -174,6 +180,7 @@ const AddStoryModal = ({ isOpen, onClose, onSubmit, story = null, defaultType = 
         </div>
 
         <div className="grid grid-cols-2 gap-4">
+          {!isEpic && (
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">
               Assign To <span className="text-red-400">*</span>
@@ -238,6 +245,7 @@ const AddStoryModal = ({ isOpen, onClose, onSubmit, story = null, defaultType = 
               </div>
             )}
           </div>
+          )}
 
           <Input
             label="Story Points"
@@ -314,7 +322,12 @@ const AddStoryModal = ({ isOpen, onClose, onSubmit, story = null, defaultType = 
           />
         </div>
 
-
+        <AttachmentsSection
+          storyId={story?.id}
+          editable
+          pendingFiles={pendingFiles}
+          onPendingFilesChange={setPendingFiles}
+        />
 
         <div className="flex justify-end space-x-3 pt-4">
           <Button

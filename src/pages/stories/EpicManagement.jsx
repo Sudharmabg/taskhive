@@ -51,7 +51,7 @@ const EpicManagement = () => {
 
   const handleUpdateEpic = async (storyData) => {
     try {
-      await updateStory(editingEpic.id, { ...storyData, type: 'EPIC' });
+      await updateStory(editingEpic.id, { ...storyData, type: 'Epic' });
       setShowAddModal(false);
       setEditingEpic(null);
     } catch (err) {
