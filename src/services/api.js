@@ -6,25 +6,72 @@ class ApiService {
     this.baseURL = API_BASE_URL;
   }
 
+  // Signed-in user saved by login()
+  getCurrentUser() {
+    try {
+      return JSON.parse(localStorage.getItem('user') || '{}') || {};
+    } catch {
+      return {};
+    }
+  }
+
+  // Auth token plus the signed-in user's id, which the backend uses for
+  // attribution (audit trail, time logs) and permission checks
+  authHeaders() {
+    const token = localStorage.getItem('authToken');
+    const user = this.getCurrentUser();
+    return {
+      ...(token && { Authorization: `Bearer ${token}` }),
+      ...(user.id != null && { 'X-User-Id': String(user.id) }),
+    };
+  }
+
+  // Prefer the backend's { message } over a bare status code
+  async errorFrom(response) {
+    let message = `API Error: ${response.status}`;
+    try {
+      const body = await response.json();
+      if (body && body.message) message = body.message;
+    } catch (_) { /* no JSON body */ }
+    const error = new Error(message);
+    error.status = response.status;
+    return error;
+  }
+
   async request(endpoint, options = {}) {
     const url = `${this.baseURL}${endpoint}`;
-    const token = localStorage.getItem('authToken');
-    
+    const { headers, ...rest } = options;
+
     const config = {
+      ...rest,
       headers: {
         'Content-Type': 'application/json',
-        ...(token && { Authorization: `Bearer ${token}` }),
-        ...options.headers,
+        ...this.authHeaders(),
+        ...headers,
       },
-      ...options,
     };
 
     const response = await fetch(url, config);
     
     if (!response.ok) {
-      throw new Error(`API Error: ${response.status}`);
+      throw await this.errorFrom(response);
     }
     
+    return response.json();
+  }
+
+  // Multipart upload; the browser sets the Content-Type (with boundary)
+  async uploadFiles(endpoint, files) {
+    const formData = new FormData();
+    files.forEach(file => formData.append('files', file));
+    const response = await fetch(`${this.baseURL}${endpoint}`, {
+      method: 'POST',
+      headers: this.authHeaders(),
+      body: formData,
+    });
+    if (!response.ok) {
+      throw await this.errorFrom(response);
+    }
     return response.json();
   }
 
@@ -246,37 +293,24 @@ class ApiService {
     return this.request(`/stories/${storyId}/attachments`);
   }
 
-  async uploadAttachments(storyId, files) {
-    const formData = new FormData();
-    files.forEach(file => formData.append('files', file));
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    if (user.name) formData.append('uploadedBy', user.name);
+  uploadAttachments(storyId, files) {
+    return this.uploadFiles(`/stories/${storyId}/attachments`, files);
+  }
 
-    const token = localStorage.getItem('authToken');
-    // Let the browser set the multipart Content-Type (with boundary)
-    const response = await fetch(`${this.baseURL}/stories/${storyId}/attachments`, {
-      method: 'POST',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-      body: formData,
-    });
-    if (!response.ok) {
-      let message = `API Error: ${response.status}`;
-      try {
-        const body = await response.json();
-        if (body.message) message = body.message;
-      } catch (_) { /* ignore */ }
-      throw new Error(message);
-    }
-    return response.json();
+  getSubtaskAttachments(subtaskId) {
+    return this.request(`/subtasks/${subtaskId}/attachments`);
+  }
+
+  uploadSubtaskAttachments(subtaskId, files) {
+    return this.uploadFiles(`/subtasks/${subtaskId}/attachments`, files);
   }
 
   async downloadAttachment(attachment) {
-    const token = localStorage.getItem('authToken');
     const response = await fetch(`${this.baseURL}/attachments/${attachment.id}/download`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      headers: this.authHeaders(),
     });
     if (!response.ok) {
-      throw new Error(`API Error: ${response.status}`);
+      throw await this.errorFrom(response);
     }
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);
@@ -293,6 +327,57 @@ class ApiService {
     return this.request(`/attachments/${attachmentId}`, {
       method: 'DELETE',
     });
+  }
+
+  // Time tracking (Task / Bug): estimate set by assignees, daily time logs
+  getTimeTracking(storyId) {
+    return this.request(`/stories/${storyId}/time`);
+  }
+
+  setEstimate(storyId, estimatedHours) {
+    return this.request(`/stories/${storyId}/estimate`, {
+      method: 'PUT',
+      body: JSON.stringify({ estimatedHours }),
+    });
+  }
+
+  logTime(storyId, { workDate, hours, note }) {
+    return this.request(`/stories/${storyId}/timelogs`, {
+      method: 'POST',
+      body: JSON.stringify({ workDate, hours, note }),
+    });
+  }
+
+  deleteTimeLog(timeLogId) {
+    return this.request(`/timelogs/${timeLogId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Account
+  changePassword(currentPassword, newPassword) {
+    return this.request('/account/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+  }
+
+  // Audit trail
+  getStoryHistory(storyId) {
+    return this.request(`/stories/${storyId}/history`);
+  }
+
+  getAuditLogs({ type, action, user, search, page = 0, size = 25 } = {}) {
+    const params = new URLSearchParams({
+      companyId: String(this.getCompanyId()),
+      page: String(page),
+      size: String(size),
+    });
+    if (type) params.set('type', type);
+    if (action) params.set('action', action);
+    if (user) params.set('user', user);
+    if (search) params.set('search', search);
+    return this.request(`/audit?${params.toString()}`);
   }
 
   // Analytics endpoints

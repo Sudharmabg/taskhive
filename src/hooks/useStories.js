@@ -6,8 +6,9 @@ export const useStories = (type = null) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const fetchStories = async () => {
-    setLoading(true);
+  // silent: refresh without showing the loading state (keeps open modals mounted)
+  const fetchStories = async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true);
     setError(null);
     try {
       const data = await apiService.getStories();
@@ -16,9 +17,12 @@ export const useStories = (type = null) => {
     } catch (err) {
       setError(err.message);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
+
+  // Re-read stories after something changed server-side (e.g. progress recalculated)
+  const refreshStories = () => fetchStories({ silent: true });
 
   const createStory = async (storyData) => {
     try {
@@ -61,6 +65,7 @@ export const useStories = (type = null) => {
     loading,
     error,
     fetchStories,
+    refreshStories,
     createStory,
     updateStory,
     deleteStory

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { PlusIcon, TrashIcon, XIcon } from '@heroicons/react/outline';
+import { PlusIcon, TrashIcon, XIcon, PaperClipIcon } from '@heroicons/react/outline';
 import apiService from '../../services/api';
+import AttachmentsSection from './AttachmentsSection';
 
 /**
  * Subtasks (checklist) for Tasks and Bugs.
@@ -10,18 +11,22 @@ import apiService from '../../services/api';
  * - pendingSubtasks / onPendingSubtasksChange: when provided, newly added titles are kept
  *   as pending and saved together with the story form. Without them, new subtasks are
  *   saved immediately (requires storyId).
+ *
+ * Each saved subtask has its own attachments (paperclip button); files upload immediately.
  */
 const SubtasksSection = ({
   storyId,
   editable = false,
   pendingSubtasks,
   onPendingSubtasksChange,
+  onChange, // called after a saved subtask is added, ticked or deleted
 }) => {
   const [subtasks, setSubtasks] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [newTitle, setNewTitle] = useState('');
   const [adding, setAdding] = useState(false);
+  const [openAttachmentsId, setOpenAttachmentsId] = useState(null);
 
   const usePending = typeof onPendingSubtasksChange === 'function';
   const pending = pendingSubtasks || [];
@@ -59,6 +64,7 @@ const SubtasksSection = ({
       const created = await apiService.createSubtask(storyId, title);
       setSubtasks(prev => [...prev, created]);
       setNewTitle('');
+      onChange && onChange();
     } catch (err) {
       setError(`Could not add subtask: ${err.message}`);
     } finally {
@@ -71,6 +77,7 @@ const SubtasksSection = ({
     setSubtasks(prev => prev.map(s => (s.id === subtask.id ? { ...s, completed } : s)));
     try {
       await apiService.updateSubtask(subtask.id, { completed });
+      onChange && onChange();
     } catch (err) {
       setSubtasks(prev => prev.map(s => (s.id === subtask.id ? { ...s, completed: !completed } : s)));
       setError(`Could not update subtask: ${err.message}`);
@@ -82,6 +89,7 @@ const SubtasksSection = ({
     try {
       await apiService.deleteSubtask(subtask.id);
       setSubtasks(prev => prev.filter(s => s.id !== subtask.id));
+      onChange && onChange();
     } catch (err) {
       setError(`Could not delete subtask: ${err.message}`);
     }
@@ -119,7 +127,8 @@ const SubtasksSection = ({
       ) : (
         <ul className="divide-y divide-gray-600 border border-gray-600 rounded-lg bg-gray-700 mb-2">
           {subtasks.map(subtask => (
-            <li key={`saved-${subtask.id}`} className="flex items-center justify-between px-3 py-2">
+            <li key={`saved-${subtask.id}`} className="px-3 py-2">
+             <div className="flex items-center justify-between">
               <label className="flex items-center min-w-0 cursor-pointer">
                 <input
                   type="checkbox"
@@ -132,15 +141,41 @@ const SubtasksSection = ({
                   {subtask.title}
                 </span>
               </label>
-              {editable && (
+              <div className="flex items-center space-x-2 ml-2 flex-shrink-0">
                 <button
                   type="button"
-                  onClick={() => handleDelete(subtask)}
-                  className="ml-2 text-gray-400 hover:text-red-400 flex-shrink-0"
-                  aria-label={`Delete subtask ${subtask.title}`}
+                  onClick={() => setOpenAttachmentsId(openAttachmentsId === subtask.id ? null : subtask.id)}
+                  className={`inline-flex items-center text-xs ${openAttachmentsId === subtask.id ? 'text-yellow-400' : 'text-gray-400 hover:text-white'}`}
+                  aria-label={`Attachments for subtask ${subtask.title}`}
+                  aria-expanded={openAttachmentsId === subtask.id}
                 >
-                  <TrashIcon className="h-4 w-4" />
+                  <PaperClipIcon className="h-4 w-4" />
+                  {subtask.attachmentCount > 0 && <span className="ml-0.5">{subtask.attachmentCount}</span>}
                 </button>
+                {editable && (
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(subtask)}
+                    className="text-gray-400 hover:text-red-400"
+                    aria-label={`Delete subtask ${subtask.title}`}
+                  >
+                    <TrashIcon className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+             </div>
+              {openAttachmentsId === subtask.id && (
+                <div className="mt-2 ml-6">
+                  <AttachmentsSection
+                    subtaskId={subtask.id}
+                    editable={editable}
+                    hideLabel
+                    compact
+                    onCountChange={(count) =>
+                      setSubtasks(prev => prev.map(s => (s.id === subtask.id ? { ...s, attachmentCount: count } : s)))
+                    }
+                  />
+                </div>
               )}
             </li>
           ))}
@@ -152,6 +187,7 @@ const SubtasksSection = ({
                 <span className="ml-2 text-xs px-1.5 py-0.5 rounded text-black flex-shrink-0" style={{ backgroundColor: '#ffc44d' }}>
                   New
                 </span>
+                <span className="ml-2 text-xs text-gray-500 flex-shrink-0 hidden sm:inline">save to add files</span>
               </div>
               <button
                 type="button"

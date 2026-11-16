@@ -12,34 +12,53 @@ export const formatFileSize = (bytes) => {
 };
 
 /**
- * Attachments section for Epics, Tasks and Bugs.
+ * Attachments section for Epics, Tasks, Bugs and subtasks.
  *
- * - storyId: when set, already-uploaded attachments are loaded and listed
- * - editable: allows picking new files and deleting existing ones
- * - pendingFiles / onPendingFilesChange: files chosen but not yet uploaded
- *   (they are uploaded after the story is saved)
+ * - storyId: list/upload the story's own attachments
+ * - subtaskId: list/upload a subtask's attachments instead
+ * - editable: allows adding files and deleting existing ones
+ * - pendingFiles / onPendingFilesChange: when provided, chosen files are kept as pending
+ *   and uploaded after the story form is saved. Without them, files upload immediately.
+ * - onCountChange(n): told how many saved attachments there are after a change
+ * - hideLabel / compact: for nesting inside a subtask row
  */
-const AttachmentsSection = ({ storyId, editable = false, pendingFiles = [], onPendingFilesChange }) => {
+const AttachmentsSection = ({
+  storyId,
+  subtaskId,
+  editable = false,
+  pendingFiles = [],
+  onPendingFilesChange,
+  onCountChange,
+  hideLabel = false,
+  compact = false,
+}) => {
   const [attachments, setAttachments] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
+  const usePending = typeof onPendingFilesChange === 'function';
+  const ownerId = subtaskId || storyId;
 
   useEffect(() => {
-    if (!storyId) {
+    if (!ownerId) {
       setAttachments([]);
       return;
     }
     let cancelled = false;
     setLoading(true);
-    apiService
-      .getAttachments(storyId)
+    (subtaskId ? apiService.getSubtaskAttachments(subtaskId) : apiService.getAttachments(storyId))
       .then(data => { if (!cancelled) setAttachments(Array.isArray(data) ? data : []); })
       .catch(err => { if (!cancelled) setError(`Failed to load attachments: ${err.message}`); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [storyId]);
+  }, [storyId, subtaskId, ownerId]);
+
+  const updateAttachments = (next) => {
+    setAttachments(next);
+    onCountChange && onCountChange(next.length);
+  };
 
   const addFiles = (fileList) => {
     const files = Array.from(fileList || []);
@@ -48,8 +67,25 @@ const AttachmentsSection = ({ storyId, editable = false, pendingFiles = [], onPe
     setError(tooLarge.length
       ? `Skipped (over 10 MB): ${tooLarge.map(f => f.name).join(', ')}`
       : '');
-    if (accepted.length && onPendingFilesChange) {
+    if (!accepted.length) return;
+    if (usePending) {
       onPendingFilesChange([...pendingFiles, ...accepted]);
+    } else if (ownerId) {
+      uploadNow(accepted);
+    }
+  };
+
+  const uploadNow = async (files) => {
+    try {
+      setUploading(true);
+      const saved = subtaskId
+        ? await apiService.uploadSubtaskAttachments(subtaskId, files)
+        : await apiService.uploadAttachments(storyId, files);
+      updateAttachments([...attachments, ...(Array.isArray(saved) ? saved : [])]);
+    } catch (err) {
+      setError(`Upload failed: ${err.message}`);
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -69,7 +105,7 @@ const AttachmentsSection = ({ storyId, editable = false, pendingFiles = [], onPe
     if (!window.confirm(`Delete attachment "${attachment.fileName}"?`)) return;
     try {
       await apiService.deleteAttachment(attachment.id);
-      setAttachments(prev => prev.filter(a => a.id !== attachment.id));
+      updateAttachments(attachments.filter(a => a.id !== attachment.id));
     } catch (err) {
       setError(`Delete failed: ${err.message}`);
     }
@@ -79,11 +115,13 @@ const AttachmentsSection = ({ storyId, editable = false, pendingFiles = [], onPe
 
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-300 mb-1">
-        Attachments
-      </label>
+      {!hideLabel && (
+        <label className="block text-sm font-medium text-gray-300 mb-1">
+          Attachments
+        </label>
+      )}
 
-      {editable && (
+      {editable && (usePending || ownerId) && (
         <div
           onClick={() => fileInputRef.current?.click()}
           onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
@@ -93,13 +131,13 @@ const AttachmentsSection = ({ storyId, editable = false, pendingFiles = [], onPe
             setIsDragging(false);
             addFiles(e.dataTransfer.files);
           }}
-          className={`flex items-center justify-center px-3 py-4 mb-2 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
+          className={`flex items-center justify-center px-3 ${compact ? 'py-2' : 'py-4'} mb-2 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
             isDragging ? 'border-yellow-400 bg-gray-600' : 'border-gray-600 bg-gray-700 hover:border-gray-500'
           }`}
         >
           <PaperClipIcon className="h-5 w-5 text-gray-400 mr-2" />
           <span className="text-sm text-gray-300">
-            Drop files here or <span style={{ color: '#ffc44d' }}>browse</span>
+            {uploading ? 'Uploading...' : (<>Drop files here or <span style={{ color: '#ffc44d' }}>browse</span></>)}
             <span className="text-gray-500"> (max 10 MB each)</span>
           </span>
           <input

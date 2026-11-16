@@ -355,7 +355,7 @@ const AddStoryModal = ({ isOpen, onClose, onSubmit, story = null, defaultType = 
               <option value="">No epic</option>
               {epics.map(epic => (
                 <option key={epic.id} value={epic.id}>
-                  {epic.storyId ? `${epic.storyId} – ` : ''}{epic.title}
+                  {epic.storyId ? `${epic.storyId} â€“ ` : ''}{epic.title}
                 </option>
               ))}
             </select>

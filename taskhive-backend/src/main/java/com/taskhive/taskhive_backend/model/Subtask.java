@@ -35,6 +35,10 @@ public class Subtask {
     @Column(name = "position")
     private Integer position = 0;
 
+    /** Number of files attached; filled in when listing, not stored. */
+    @Transient
+    private Long attachmentCount;
+
     @CreationTimestamp
     @Column(name = "created_at")
     private LocalDateTime createdAt;

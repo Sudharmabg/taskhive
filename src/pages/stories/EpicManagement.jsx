@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
 import TaskSummaryTable from '../../components/common/TaskSummaryTable';
 import AddStoryModal from '../../components/modals/AddStoryModal';
-import { generateStoryId } from '../../utils/storyUtils';
+import { generateStoryId, filterStories, hasActiveFilters } from '../../utils/storyUtils';
 import { PlusIcon } from '@heroicons/react/outline';
 import { useStories } from '../../hooks/useStories';
 
@@ -12,7 +12,7 @@ import { useStories } from '../../hooks/useStories';
  * Handles epic story listing, filtering, and CRUD operations for Epics only
  */
 const EpicManagement = () => {
-  const { stories: epics, loading, error, createStory, updateStory, deleteStory } = useStories('Epic');
+  const { stories: epics, loading, error, createStory, updateStory, deleteStory, refreshStories } = useStories('Epic');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingEpic, setEditingEpic] = useState(null);
   const [filters, setFilters] = useState({
@@ -20,6 +20,9 @@ const EpicManagement = () => {
     priority: 'All',
     search: ''
   });
+
+  const filteredEpics = useMemo(() => filterStories(epics, filters), [epics, filters]);
+  const filtersActive = hasActiveFilters(filters);
 
   const handleFilterChange = (filterType, value) => {
     setFilters(prev => ({
@@ -75,8 +78,7 @@ const EpicManagement = () => {
       if (epic) {
         const updatedEpic = {
           ...epic,
-          status: newStatus,
-          progress: newStatus === 'Completed' ? 100 : newStatus === 'In Progress' ? 50 : 0
+          status: newStatus
         };
         await updateStory(epicId, updatedEpic);
       }
@@ -163,7 +165,9 @@ const EpicManagement = () => {
           <div className="p-6 text-center text-red-400">Error: {error}</div>
         ) : (
           <TaskSummaryTable
-            tasks={epics}
+            tasks={filteredEpics}
+            emptyMessage={filtersActive && epics.length > 0 ? 'No epics match these filters' : undefined}
+            onDataChange={refreshStories}
             onEdit={handleEditEpic}
             onStatusChange={handleStatusChange}
             tableType="Epic"

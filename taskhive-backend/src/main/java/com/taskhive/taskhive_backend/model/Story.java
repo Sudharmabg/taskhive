@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -72,6 +73,19 @@ public class Story {
     
     @Column(name = "created_by")
     private Long createdBy;
+    
+    @Column(name = "created_by_name", length = 100)
+    private String createdByName;
+    
+    @Column(name = "updated_by")
+    private Long updatedBy;
+    
+    @Column(name = "updated_by_name", length = 100)
+    private String updatedByName;
+    
+    /** Estimate set by an assignee (Tasks and Bugs). */
+    @Column(name = "estimated_hours", precision = 7, scale = 2)
+    private BigDecimal estimatedHours;
     
     @CreationTimestamp
     @Column(name = "created_at")

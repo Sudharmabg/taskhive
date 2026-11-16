@@ -10,6 +10,7 @@ import {
   UserGroupIcon, 
   CalendarIcon,
   ChartBarIcon,
+  ShieldCheckIcon,
   LogoutIcon 
 } from '@heroicons/react/outline';
 
@@ -32,6 +33,7 @@ const Sidebar = () => {
       { name: 'Teams', href: '/teams', icon: UserGroupIcon },
       { name: 'Sprints', href: '/sprints', icon: CalendarIcon }, // Admin can manage all sprints
       { name: 'Analytics', href: '/analytics', icon: ChartBarIcon },
+      { name: 'Audit Log', href: '/audit', icon: ShieldCheckIcon },
     ] : [])
   ];
 

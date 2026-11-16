@@ -4,6 +4,7 @@ import com.taskhive.taskhive_backend.model.Sprint;
 import com.taskhive.taskhive_backend.model.Company;
 import com.taskhive.taskhive_backend.repository.SprintRepository;
 import com.taskhive.taskhive_backend.repository.CompanyRepository;
+import com.taskhive.taskhive_backend.service.ProgressService;
 import com.taskhive.taskhive_backend.service.SprintService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -16,6 +17,7 @@ public class SprintServiceImpl implements SprintService {
     
     private final SprintRepository sprintRepository;
     private final CompanyRepository companyRepository;
+    private final ProgressService progressService;
     
     @Override
     public List<Sprint> getAllSprintsByCompany(Long companyId) {
@@ -65,9 +67,11 @@ public class SprintServiceImpl implements SprintService {
         existingSprint.setStartDate(sprint.getStartDate());
         existingSprint.setEndDate(sprint.getEndDate());
         existingSprint.setStatus(sprint.getStatus());
-        existingSprint.setProgress(sprint.getProgress());
+        // progress is derived from the sprint's stories, not taken from the request
         
-        return sprintRepository.save(existingSprint);
+        sprintRepository.save(existingSprint);
+        progressService.recalculateSprint(id);
+        return getSprintById(id);
     }
     
     @Override

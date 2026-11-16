@@ -14,7 +14,10 @@ import java.time.LocalDateTime;
  * File contents are stored in the database so no shared volume is needed.
  */
 @Entity
-@Table(name = "story_attachments", indexes = @Index(name = "idx_story_attachments_story_id", columnList = "story_id"))
+@Table(name = "story_attachments", indexes = {
+    @Index(name = "idx_story_attachments_story_id", columnList = "story_id"),
+    @Index(name = "idx_story_attachments_subtask_id", columnList = "subtask_id")
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -26,6 +29,10 @@ public class Attachment {
 
     @Column(name = "story_id", nullable = false)
     private Long storyId;
+
+    /** Set when the file belongs to a subtask of the story. */
+    @Column(name = "subtask_id")
+    private Long subtaskId;
 
     @Column(name = "file_name", nullable = false, length = 255)
     private String fileName;

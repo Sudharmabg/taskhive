@@ -1,5 +1,6 @@
 package com.taskhive.taskhive_backend.service;
 
+import com.taskhive.taskhive_backend.model.AuditLog;
 import com.taskhive.taskhive_backend.model.Story;
 import com.taskhive.taskhive_backend.repository.StoryRepository;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +17,8 @@ import java.util.List;
 public class ScheduledTaskService {
     
     private final StoryRepository storyRepository;
+    private final ProgressService progressService;
+    private final AuditService auditService;
     
     @Scheduled(cron = "0 0 1 * * ?") // Run daily at 1 AM
     public void updateOverdueStories() {
@@ -33,8 +36,14 @@ public class ScheduledTaskService {
                 .toList();
             
             for (Story story : overdueStories) {
+                String previousStatus = story.getStatus();
                 story.setStatus("Overdue");
+                story.setUpdatedBy(null);
+                story.setUpdatedByName("System");
                 storyRepository.save(story);
+                progressService.recalculateStory(story.getId());
+                auditService.record(story, AuditLog.Action.UPDATED,
+                    "Status: " + (previousStatus == null ? "(none)" : previousStatus) + " → Overdue (deadline passed)");
             }
             
             log.info("Updated {} stories to overdue status", overdueStories.size());

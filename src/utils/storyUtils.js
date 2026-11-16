@@ -60,3 +60,53 @@ export const getStoryUrl = (storyId, type) => {
   
   return `/app/${typeRoutes[type] || 'stories'}/${storyId}`;
 };
+
+/**
+ * True once the deadline day has fully passed (local time).
+ * A date-only deadline ("2026-11-16") stays on time for that whole day.
+ */
+export const isPastDeadline = (deadline) => {
+  if (!deadline) return false;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(deadline));
+  const end = m ? new Date(+m[1], +m[2] - 1, +m[3], 23, 59, 59, 999) : new Date(deadline);
+  return !Number.isNaN(end.getTime()) && end < new Date();
+};
+
+/** Status as shown in the UI: an unfinished item past its deadline counts as Overdue. */
+export const getEffectiveStatus = (story) => {
+  if (!story) return '';
+  if (story.status === 'Completed') return 'Completed';
+  if (isPastDeadline(story.deadline)) return 'Overdue';
+  return story.status || 'Pending';
+};
+
+/** Text a search matches against: ID, title, assignees, description, criteria. */
+const searchableText = (story) =>
+  [story.storyId, story.title, story.assigneeName, story.description, story.acceptanceCriteria, story.type]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+/**
+ * Apply list filters. 'All' or an empty value means "don't filter".
+ * Search is case-insensitive and every word must match.
+ */
+export const filterStories = (stories = [], { status, priority, search, type } = {}) => {
+  const words = (search || '').toLowerCase().split(/\s+/).filter(Boolean);
+  const active = (value) => value && value !== 'All';
+
+  return stories.filter(story => {
+    if (active(type) && (story.type || '').toLowerCase() !== type.toLowerCase()) return false;
+    if (active(status) && getEffectiveStatus(story) !== status) return false;
+    if (active(priority) && (story.priority || '').toLowerCase() !== priority.toLowerCase()) return false;
+    if (words.length) {
+      const text = searchableText(story);
+      if (!words.every(word => text.includes(word))) return false;
+    }
+    return true;
+  });
+};
+
+/** True when any list filter is set. */
+export const hasActiveFilters = ({ status, priority, search, type } = {}) =>
+  [status, priority, type].some(v => v && v !== 'All') || Boolean((search || '').trim());

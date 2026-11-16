@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
 import TaskSummaryTable from '../../components/common/TaskSummaryTable';
 import AddStoryModal from '../../components/modals/AddStoryModal';
-import { generateStoryId } from '../../utils/storyUtils';
+import { generateStoryId, filterStories, hasActiveFilters } from '../../utils/storyUtils';
 import { PlusIcon } from '@heroicons/react/outline';
 import { useStories } from '../../hooks/useStories';
 
@@ -12,13 +12,16 @@ import { useStories } from '../../hooks/useStories';
  * Handles story listing, filtering, and CRUD operations for Tasks only
  */
 const TaskManagement = () => {
-  const { stories: tasks, loading, error, createStory, updateStory, deleteStory } = useStories('Task');
+  const { stories: tasks, loading, error, createStory, updateStory, deleteStory, refreshStories } = useStories('Task');
   const [showAddModal, setShowAddModal] = useState(false);
   const [filters, setFilters] = useState({
     status: 'All',
     priority: 'All',
     search: ''
   });
+
+  const filteredTasks = useMemo(() => filterStories(tasks, filters), [tasks, filters]);
+  const filtersActive = hasActiveFilters(filters);
 
   const handleFilterChange = (filterType, value) => {
     setFilters(prev => ({
@@ -76,8 +79,7 @@ const TaskManagement = () => {
       if (task) {
         const updatedTask = {
           ...task,
-          status: newStatus,
-          progress: newStatus === 'Completed' ? 100 : newStatus === 'In Progress' ? 50 : 0
+          status: newStatus
         };
         await updateStory(taskId, updatedTask);
       }
@@ -164,7 +166,9 @@ const TaskManagement = () => {
           <div className="p-6 text-center text-red-400">Error: {error}</div>
         ) : (
           <TaskSummaryTable
-            tasks={tasks}
+            tasks={filteredTasks}
+            emptyMessage={filtersActive && tasks.length > 0 ? 'No tasks match these filters' : undefined}
+            onDataChange={refreshStories}
             onEdit={handleEditTask}
             onStatusChange={handleStatusChange}
             tableType="Task"

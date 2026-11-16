@@ -21,7 +21,7 @@ import {
  */
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { stories, loading, createStory, fetchStories } = useStories();
+  const { stories, loading, createStory, fetchStories, refreshStories } = useStories();
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingStory, setEditingStory] = useState(null);
   
@@ -114,11 +114,10 @@ const Dashboard = () => {
       if (story) {
         const updatedStory = {
           ...story,
-          status: newStatus,
-          progress: newStatus === 'Completed' ? 100 : newStatus === 'In Progress' ? 50 : 0
+          status: newStatus
         };
         await apiService.updateStory(storyId, updatedStory);
-        await fetchStories(); // Refresh the stories list
+        await refreshStories(); // Quiet refresh: keeps the table mounted, picks up server-side progress
       }
     } catch (err) {
       console.error('Failed to update story status:', err);
@@ -191,6 +190,7 @@ const Dashboard = () => {
         ) : (
           <TaskSummaryTable
             tasks={stories.slice(0, 5)}
+            onDataChange={refreshStories}
             onEdit={handleEditStory}
             onStatusChange={handleStatusChange}
           />

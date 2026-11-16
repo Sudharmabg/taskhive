@@ -13,6 +13,8 @@ import TeamManagement from './pages/teams/TeamManagement';
 import SprintManagement from './pages/sprints/SprintManagement';
 import SprintDetailPage from './pages/sprints/SprintDetailPage';
 import Analytics from './pages/analytics/Analytics';
+import AuditLog from './pages/audit/AuditLog';
+import SearchResults from './pages/search/SearchResults';
 import Layout from './components/layout/Layout';
 import ErrorBoundary from './components/common/ErrorBoundary';
 
@@ -74,6 +76,8 @@ function App() {
             <Route path="sprints" element={<AdminRoute><SprintManagement /></AdminRoute>} />
             <Route path="sprints/:sprintId" element={<AdminRoute><SprintDetailPage /></AdminRoute>} />
             <Route path="analytics" element={<AdminRoute><Analytics /></AdminRoute>} />
+            <Route path="audit" element={<AdminRoute><AuditLog /></AdminRoute>} />
+            <Route path="search" element={<SearchResults />} />
           </Route>
         </Routes>
         </div>

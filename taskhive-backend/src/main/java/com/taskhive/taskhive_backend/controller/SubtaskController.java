@@ -1,14 +1,19 @@
 package com.taskhive.taskhive_backend.controller;
 
+import com.taskhive.taskhive_backend.model.AuditLog;
 import com.taskhive.taskhive_backend.model.Story;
 import com.taskhive.taskhive_backend.model.Subtask;
+import com.taskhive.taskhive_backend.repository.AttachmentRepository;
 import com.taskhive.taskhive_backend.repository.StoryRepository;
 import com.taskhive.taskhive_backend.repository.SubtaskRepository;
+import com.taskhive.taskhive_backend.service.AuditService;
+import com.taskhive.taskhive_backend.service.ProgressService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -23,10 +28,15 @@ public class SubtaskController {
 
     private final SubtaskRepository subtaskRepository;
     private final StoryRepository storyRepository;
+    private final AttachmentRepository attachmentRepository;
+    private final ProgressService progressService;
+    private final AuditService auditService;
 
     @GetMapping("/stories/{storyId}/subtasks")
     public ResponseEntity<?> list(@PathVariable Long storyId) {
-        return ResponseEntity.ok(subtaskRepository.findByStoryIdOrderByPositionAscIdAsc(storyId));
+        List<Subtask> subtasks = subtaskRepository.findByStoryIdOrderByPositionAscIdAsc(storyId);
+        subtasks.forEach(s -> s.setAttachmentCount(attachmentRepository.countBySubtaskId(s.getId())));
+        return ResponseEntity.ok(subtasks);
     }
 
     @PostMapping("/stories/{storyId}/subtasks")
@@ -50,7 +60,11 @@ public class SubtaskController {
         subtask.setTitle(title);
         subtask.setCompleted(Boolean.TRUE.equals(body.get("completed")));
         subtask.setPosition((int) subtaskRepository.countByStoryId(storyId));
-        return ResponseEntity.ok(subtaskRepository.save(subtask));
+        Subtask saved = subtaskRepository.save(subtask);
+        saved.setAttachmentCount(0L);
+        auditService.record(story.get(), AuditLog.Action.UPDATED, "Added subtask \"" + title + "\"");
+        progressService.recalculateStory(storyId);
+        return ResponseEntity.ok(saved);
     }
 
     /** Partial update: send "title" and/or "completed". */
@@ -61,6 +75,8 @@ public class SubtaskController {
             return ResponseEntity.notFound().build();
         }
         Subtask subtask = existing.get();
+        String oldTitle = subtask.getTitle();
+        Boolean oldCompleted = subtask.getCompleted();
         if (body.containsKey("title")) {
             String title = body.get("title") == null ? "" : body.get("title").toString().trim();
             if (title.isEmpty() || title.length() > 200) {
@@ -71,15 +87,38 @@ public class SubtaskController {
         if (body.containsKey("completed")) {
             subtask.setCompleted(Boolean.TRUE.equals(body.get("completed")));
         }
-        return ResponseEntity.ok(subtaskRepository.save(subtask));
+        Subtask saved = subtaskRepository.save(subtask);
+        saved.setAttachmentCount(attachmentRepository.countBySubtaskId(id));
+
+        storyRepository.findById(saved.getStoryId()).ifPresent(story -> {
+            if (!oldTitle.equals(saved.getTitle())) {
+                auditService.record(story, AuditLog.Action.UPDATED,
+                    "Renamed subtask \"" + oldTitle + "\" → \"" + saved.getTitle() + "\"");
+            }
+            boolean wasCompleted = Boolean.TRUE.equals(oldCompleted);
+            boolean isCompleted = Boolean.TRUE.equals(saved.getCompleted());
+            if (wasCompleted != isCompleted) {
+                auditService.record(story, AuditLog.Action.UPDATED,
+                    (Boolean.TRUE.equals(saved.getCompleted()) ? "Completed" : "Reopened")
+                        + " subtask \"" + saved.getTitle() + "\"");
+            }
+        });
+        progressService.recalculateStory(saved.getStoryId());
+        return ResponseEntity.ok(saved);
     }
 
     @DeleteMapping("/subtasks/{id}")
     public ResponseEntity<?> delete(@PathVariable Long id) {
-        if (!subtaskRepository.existsById(id)) {
+        Optional<Subtask> existing = subtaskRepository.findById(id);
+        if (existing.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
+        Subtask subtask = existing.get();
+        attachmentRepository.deleteBySubtaskId(id);
         subtaskRepository.deleteById(id);
+        storyRepository.findById(subtask.getStoryId()).ifPresent(story ->
+            auditService.record(story, AuditLog.Action.UPDATED, "Deleted subtask \"" + subtask.getTitle() + "\""));
+        progressService.recalculateStory(subtask.getStoryId());
         return ResponseEntity.ok(Map.of("success", true, "message", "Subtask deleted"));
     }
 

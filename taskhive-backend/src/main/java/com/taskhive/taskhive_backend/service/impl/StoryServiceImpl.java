@@ -1,17 +1,24 @@
 package com.taskhive.taskhive_backend.service.impl;
 
+import com.taskhive.taskhive_backend.model.AuditLog;
 import com.taskhive.taskhive_backend.model.Story;
+import com.taskhive.taskhive_backend.model.User;
 import com.taskhive.taskhive_backend.model.Company;
 import com.taskhive.taskhive_backend.repository.AttachmentRepository;
 import com.taskhive.taskhive_backend.repository.StoryRepository;
 import com.taskhive.taskhive_backend.repository.SubtaskRepository;
 import com.taskhive.taskhive_backend.repository.CompanyRepository;
+import com.taskhive.taskhive_backend.service.AuditService;
+import com.taskhive.taskhive_backend.service.CurrentUserService;
+import com.taskhive.taskhive_backend.service.ProgressService;
 import com.taskhive.taskhive_backend.service.StoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -21,6 +28,10 @@ public class StoryServiceImpl implements StoryService {
     private final CompanyRepository companyRepository;
     private final AttachmentRepository attachmentRepository;
     private final SubtaskRepository subtaskRepository;
+    private final ProgressService progressService;
+    private final AuditService auditService;
+    private final CurrentUserService currentUserService;
+    private final com.taskhive.taskhive_backend.repository.TimeLogRepository timeLogRepository;
     
     @Override
     public List<Story> getAllStoriesByCompany(Long companyId) {
@@ -71,17 +82,37 @@ public class StoryServiceImpl implements StoryService {
         
         story.setEpicId(resolveEpicId(story.getType(), story.getEpicId()));
         
-        // Set created by (default to admin user ID 1 for now)
-        if (story.getCreatedBy() == null) {
-            story.setCreatedBy(1L);
-        }
+        // Never trust client-supplied attribution, progress or estimate
+        story.setProgress(0);
+        story.setEstimatedHours(null);
+        Optional<User> currentUser = currentUserService.get();
+        story.setCreatedBy(currentUser.map(User::getId).orElse(null));
+        story.setCreatedByName(currentUserService.displayName());
+        story.setUpdatedBy(story.getCreatedBy());
+        story.setUpdatedByName(story.getCreatedByName());
         
-        return storyRepository.save(story);
+        Story saved = storyRepository.save(story);
+        auditService.record(saved, AuditLog.Action.CREATED, "Created " + saved.getType() + " \"" + saved.getTitle() + "\"");
+        progressService.recalculateStory(saved.getId());
+        return getStoryById(saved.getId());
     }
     
     @Override
     public Story updateStory(Long id, Story story) {
         Story existingStory = getStoryById(id);
+        Long previousEpicId = existingStory.getEpicId();
+        Long newEpicId = resolveEpicId(existingStory.getType(), story.getEpicId());
+        
+        List<String> changes = new ArrayList<>();
+        AuditService.diff(changes, "Title", existingStory.getTitle(), story.getTitle());
+        AuditService.diffText(changes, "Description", existingStory.getDescription(), story.getDescription());
+        AuditService.diff(changes, "Priority", existingStory.getPriority(), story.getPriority());
+        AuditService.diff(changes, "Status", existingStory.getStatus(), story.getStatus());
+        AuditService.diff(changes, "Assignees", existingStory.getAssigneeName(), story.getAssigneeName());
+        AuditService.diff(changes, "Story points", existingStory.getStoryPoints(), story.getStoryPoints());
+        AuditService.diff(changes, "Deadline", existingStory.getDeadline(), story.getDeadline());
+        AuditService.diffText(changes, "Acceptance criteria", existingStory.getAcceptanceCriteria(), story.getAcceptanceCriteria());
+        AuditService.diff(changes, "Epic", epicLabel(previousEpicId), epicLabel(newEpicId));
         
         existingStory.setTitle(story.getTitle());
         existingStory.setDescription(story.getDescription());
@@ -90,29 +121,56 @@ public class StoryServiceImpl implements StoryService {
         existingStory.setAssigneeId(story.getAssigneeId());
         existingStory.setAssigneeName(story.getAssigneeName());
         existingStory.setStoryPoints(story.getStoryPoints());
-        existingStory.setProgress(story.getProgress());
         existingStory.setDeadline(story.getDeadline());
         existingStory.setAcceptanceCriteria(story.getAcceptanceCriteria());
-        existingStory.setEpicId(resolveEpicId(existingStory.getType(), story.getEpicId()));
+        existingStory.setEpicId(newEpicId);
+        // progress is derived by ProgressService, estimate has its own endpoint
         
-        return storyRepository.save(existingStory);
+        if (!changes.isEmpty()) {
+            existingStory.setUpdatedBy(currentUserService.get().map(User::getId).orElse(null));
+            existingStory.setUpdatedByName(currentUserService.displayName());
+        }
+        storyRepository.save(existingStory);
+        if (!changes.isEmpty()) {
+            auditService.record(existingStory, AuditLog.Action.UPDATED, String.join("\n", changes));
+        }
+        progressService.recalculateStory(id);
+        if (previousEpicId != null && !previousEpicId.equals(existingStory.getEpicId())) {
+            progressService.recalculateStory(previousEpicId);
+        }
+        return getStoryById(id);
     }
     
     @Override
     @Transactional
     public void deleteStory(Long id) {
+        Story story = getStoryById(id);
+        Long epicId = story.getEpicId();
+        Long sprintId = story.getSprintId();
+        auditService.record(story, AuditLog.Action.DELETED, "Deleted " + story.getType() + " \"" + story.getTitle() + "\"");
         attachmentRepository.deleteByStoryId(id);
         subtaskRepository.deleteByStoryId(id);
+        timeLogRepository.deleteByStoryId(id);
         // Unlink tasks/bugs that belonged to this epic
         List<Story> children = storyRepository.findByEpicId(id);
         children.forEach(child -> child.setEpicId(null));
         storyRepository.saveAll(children);
         storyRepository.deleteById(id);
+        storyRepository.flush();
+        progressService.recalculateStory(epicId);
+        progressService.recalculateSprint(sprintId);
     }
     
     @Override
     public List<Story> getStoriesByEpicId(Long epicId) {
         return storyRepository.findByEpicId(epicId);
+    }
+    
+    private String epicLabel(Long epicId) {
+        if (epicId == null) return null;
+        return storyRepository.findById(epicId)
+            .map(e -> (e.getStoryId() != null ? e.getStoryId() + " " : "") + e.getTitle())
+            .orElse("#" + epicId);
     }
     
     /**
@@ -133,14 +191,23 @@ public class StoryServiceImpl implements StoryService {
     @Override
     public Story addStoryToSprint(Long storyId, Long sprintId) {
         Story story = getStoryById(storyId);
+        Long previousSprintId = story.getSprintId();
         story.setSprintId(sprintId);
-        return storyRepository.save(story);
+        Story saved = storyRepository.save(story);
+        progressService.recalculateSprint(sprintId);
+        if (previousSprintId != null && !previousSprintId.equals(sprintId)) {
+            progressService.recalculateSprint(previousSprintId);
+        }
+        return saved;
     }
     
     @Override
     public Story removeStoryFromSprint(Long storyId) {
         Story story = getStoryById(storyId);
+        Long previousSprintId = story.getSprintId();
         story.setSprintId(null);
-        return storyRepository.save(story);
+        Story saved = storyRepository.save(story);
+        progressService.recalculateSprint(previousSprintId);
+        return saved;
     }
 }

@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 public interface AttachmentInfo {
     Long getId();
     Long getStoryId();
+    Long getSubtaskId();
     String getFileName();
     String getContentType();
     Long getFileSize();

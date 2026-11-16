@@ -1,92 +1,76 @@
 import React, { useState } from 'react';
 import TaskDetailsModal from '../modals/TaskDetailsModal';
+import { getEffectiveStatus } from '../../utils/storyUtils';
+
+const STATUS_BADGE = {
+  'Completed': 'bg-green-500 text-white',
+  'In Progress': 'bg-blue-500 text-white',
+  'Pending': 'bg-yellow-500 text-black',
+  'Overdue': 'bg-red-500 text-white',
+};
+
+const ROW_ACCENT = {
+  'Completed': 'border-l-4 border-green-500 bg-green-500/5',
+  'In Progress': 'border-l-4 border-blue-500 bg-blue-500/5',
+  'Pending': 'border-l-4 border-yellow-500 bg-yellow-500/5',
+  'Overdue': 'border-l-4 border-red-500 bg-red-500/10',
+};
+
+const thClass = 'px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider';
 
 /**
  * Task Summary Table component
  * Displays a list of tasks with basic information and actions
  */
-const TaskSummaryTable = ({ tasks = [], onEdit, onStatusChange, tableType = 'Story' }) => {
+const TaskSummaryTable = ({ tasks = [], onEdit, onStatusChange, onDataChange, tableType = 'Story', emptyMessage }) => {
   const [selectedTask, setSelectedTask] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
-  
+  const [busyId, setBusyId] = useState(null);
+
   // Get user role for admin-only features
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const isAdmin = user.role === 'admin';
-  
-  // Check if story is overdue
-  const isOverdue = (task) => {
-    if (task.status === 'Completed') return false;
-    const today = new Date();
-    const deadline = new Date(task.deadline);
-    return deadline < today;
-  };
-  
-  // Get effective status (including overdue logic)
-  const getEffectiveStatus = (task) => {
-    if (isOverdue(task) && task.status !== 'Completed') {
-      return 'Overdue';
-    }
-    return task.status;
-  };
 
   if (tasks.length === 0) {
     const pluralType = tableType.toLowerCase() === 'story' ? 'stories' : `${tableType.toLowerCase()}s`;
     return (
       <div className="p-6 text-center text-gray-400">
-        No {pluralType} found
+        {emptyMessage || `No ${pluralType} found`}
       </div>
     );
   }
 
-  const getPriorityTextColor = (priority) => {
-    return 'text-white';
-  };
+  const typeLabel = (task) => task.type || (tableType !== 'Story' ? tableType : 'Item');
 
-  const getStatusColor = (status) => {
-    const colors = {
-      'Completed': 'bg-green-500 text-white',
-      'In Progress': 'bg-blue-500 text-white',
-      'Pending': 'bg-yellow-500 text-black',
-      'Overdue': 'bg-red-500 text-white'
-    };
-    return colors[status] || 'bg-gray-500 text-white';
-  };
-  
-  const getRowStatusColor = (task) => {
-    const effectiveStatus = getEffectiveStatus(task);
-    const colors = {
-      'Completed': 'border-l-4 border-green-500 bg-green-500/5',
-      'In Progress': 'border-l-4 border-blue-500 bg-blue-500/5',
-      'Pending': 'border-l-4 border-yellow-500 bg-yellow-500/5',
-      'Overdue': 'border-l-4 border-red-500 bg-red-500/10'
-    };
-    return colors[effectiveStatus] || '';
-  };
-  
-  const getNextStatus = (task) => {
-    const effectiveStatus = getEffectiveStatus(task);
-    if (effectiveStatus === 'Pending' || effectiveStatus === 'Overdue') {
-      return 'In Progress';
-    } else if (effectiveStatus === 'In Progress') {
-      return 'Completed';
-    } else if (effectiveStatus === 'Completed' && isAdmin) {
-      return 'In Progress';
+  /**
+   * The next step is based on the saved status, not the Overdue display state:
+   * an overdue item that was already started still offers "Mark Complete".
+   * Only admins can reopen a completed item.
+   */
+  const getAction = (task) => {
+    const status = task.status || 'Pending';
+    if (status === 'In Progress') {
+      return { next: 'Completed', label: 'Mark Complete', confirm: `Mark "${task.title}" as completed?` };
     }
-    return null;
+    if (status === 'Completed') {
+      return isAdmin
+        ? { next: 'In Progress', label: 'Reopen', confirm: `Reopen "${task.title}" and move it back to In Progress?` }
+        : null;
+    }
+    // Pending, or Overdue saved by the scheduler before work started
+    return { next: 'In Progress', label: `Start ${typeLabel(task)}` };
   };
-  
-  const getStatusButtonText = (task) => {
-    const nextStatus = getNextStatus(task);
-    if (!nextStatus) return getEffectiveStatus(task);
-    
-    const actions = {
-      'In Progress': 'Start Task',
-      'Completed': 'Mark Complete',
-    };
-    return actions[nextStatus] || nextStatus;
-  };
-  
 
+  const runAction = async (task, action) => {
+    if (!onStatusChange || busyId) return;
+    if (action.confirm && !window.confirm(action.confirm)) return;
+    setBusyId(task.id);
+    try {
+      await onStatusChange(task.id, action.next);
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   const handleViewDetails = (task) => {
     setSelectedTask(task);
@@ -99,29 +83,23 @@ const TaskSummaryTable = ({ tasks = [], onEdit, onStatusChange, tableType = 'Sto
       <table className="min-w-full divide-y divide-gray-700">
         <thead className="bg-gray-700">
           <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-              {tableType}
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-              Assigned To
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-              Assigned Date
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-              Deadline
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-              Progress
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-              Status
-            </th>
+            <th className={thClass}>{tableType}</th>
+            <th className={thClass}>Assigned To</th>
+            <th className={thClass}>Assigned Date</th>
+            <th className={thClass}>Deadline</th>
+            <th className={thClass}>Progress</th>
+            <th className={thClass}>Status</th>
+            <th className={thClass}>Actions</th>
           </tr>
         </thead>
         <tbody className="bg-gray-800 divide-y divide-gray-700">
-          {tasks.map((task) => (
-            <tr key={task.id} className={`hover:bg-gray-700/50 ${getRowStatusColor(task)}`}>
+          {tasks.map((task) => {
+            const status = getEffectiveStatus(task);
+            const action = getAction(task);
+            const busy = busyId === task.id;
+            const isComplete = action && action.next === 'Completed';
+            return (
+            <tr key={task.id} className={`hover:bg-gray-700/50 ${ROW_ACCENT[status] || ''}`}>
               <td className="px-6 py-4 whitespace-nowrap cursor-pointer hover:bg-gray-600/30" onClick={() => handleViewDetails(task)}>
                 <div className="text-sm font-semibold text-white hover:text-yellow-400 hover:underline">
                   {task.title}
@@ -135,24 +113,33 @@ const TaskSummaryTable = ({ tasks = [], onEdit, onStatusChange, tableType = 'Sto
               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-200">
                 {task.createdAt ? new Date(task.createdAt).toLocaleDateString() : '-'}
               </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-200">
-                {task.deadline}
+              <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${status === 'Overdue' ? 'text-red-400' : 'text-gray-200'}`}>
+                {task.deadline || '-'}
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
                 <div className="w-full bg-gray-700 rounded-full h-3">
-                  <div 
+                  <div
                     className="h-3 rounded-full"
-                    style={{ 
-                      width: `${task.progress}%`, 
+                    style={{
+                      width: `${task.progress || 0}%`,
                       backgroundColor: task.progress === 100 ? '#22c55e' : task.progress >= 50 ? '#ffc44d' : '#3b82f6'
                     }}
                   ></div>
                 </div>
-                <div className="text-xs font-semibold text-gray-200 mt-1">{task.progress}%</div>
+                <div className="text-xs font-semibold text-gray-200 mt-1">{task.progress || 0}%</div>
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap">
+                <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${STATUS_BADGE[status] || 'bg-gray-500 text-white'}`}>
+                  {status}
+                </span>
+                {status === 'Overdue' && task.status === 'In Progress' && (
+                  <div className="text-xs text-gray-400 mt-1">Started</div>
+                )}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                 <div className="flex items-center space-x-3">
                   <button
+                    type="button"
                     className="inline-flex items-center px-3 py-2 text-sm font-bold text-black rounded-lg hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
                     style={{ backgroundColor: '#ffc44d' }}
                     onClick={() => handleViewDetails(task)}
@@ -163,44 +150,52 @@ const TaskSummaryTable = ({ tasks = [], onEdit, onStatusChange, tableType = 'Sto
                     </svg>
                     View
                   </button>
-                  <button
-                    className="inline-flex items-center px-3 py-2 text-sm font-bold text-white bg-gray-600 rounded-lg hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-                    onClick={() => onEdit && onEdit(task.id)}
-                  >
-                    <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                    Edit
-                  </button>
-                  {getNextStatus(task) ? (
+                  {onEdit && (
                     <button
-                      className="inline-flex items-center px-3 py-2 text-sm font-bold text-black rounded-lg hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
-                      style={{ backgroundColor: '#ffc44d' }}
-                      onClick={() => onStatusChange && onStatusChange(task.id, getNextStatus(task))}
+                      type="button"
+                      className="inline-flex items-center px-3 py-2 text-sm font-bold text-white bg-gray-600 rounded-lg hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50"
+                      onClick={() => onEdit(task.id)}
+                      disabled={busy}
                     >
-                      {getStatusButtonText(task)}
+                      <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                      Edit
                     </button>
-                  ) : (
-                    <span className="inline-flex items-center px-3 py-2 text-sm font-bold text-black rounded-lg"
-                      style={{ backgroundColor: '#ffc44d' }}
+                  )}
+                  {action && onStatusChange && (
+                    <button
+                      type="button"
+                      className={`inline-flex items-center px-3 py-2 text-sm font-bold rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-wait ${
+                        isComplete
+                          ? 'text-white bg-green-600 hover:bg-green-500 focus:ring-green-500'
+                          : action.label === 'Reopen'
+                            ? 'text-gray-200 border border-gray-500 hover:bg-gray-700 focus:ring-gray-500'
+                            : 'text-white bg-blue-600 hover:bg-blue-500 focus:ring-blue-500'
+                      }`}
+                      onClick={() => runAction(task, action)}
+                      disabled={busyId != null}
+                      aria-busy={busy}
                     >
-                      {getEffectiveStatus(task)}
-                    </span>
+                      {busy ? 'Saving...' : action.label}
+                    </button>
                   )}
                 </div>
               </td>
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
       </div>
-      
-      {/* Task Details Modal */}
+
+      {/* Task Details Modal - uses the latest copy from `tasks` so progress updates while open */}
       <TaskDetailsModal
         isOpen={showDetailsModal}
         onClose={() => setShowDetailsModal(false)}
-        task={selectedTask}
+        task={(selectedTask && tasks.find(t => t.id === selectedTask.id)) || selectedTask}
         onEdit={onEdit}
+        onDataChange={onDataChange}
       />
     </div>
   );

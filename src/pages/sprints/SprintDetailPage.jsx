@@ -33,7 +33,9 @@ const SprintDetailPage = () => {
   const [editingStory, setEditingStory] = useState(null);
 
   // Get unique assignees and types for filter options
-  const uniqueAssignees = [...new Set(availableStories.map(story => story.assignee))];
+  // assigneeName holds a comma-separated list of names
+  const assigneesOf = (story) => (story.assigneeName || '').split(',').map(name => name.trim()).filter(Boolean);
+  const uniqueAssignees = [...new Set(availableStories.flatMap(assigneesOf))].sort();
   const uniqueTypes = [...new Set(availableStories.map(story => story.type))];
 
   const handleAddStoryToSprint = async (storyId) => {
@@ -298,7 +300,7 @@ const SprintDetailPage = () => {
           <div className="space-y-3 max-h-80 overflow-y-auto">
             {availableStories
               .filter(story => !sprintStories.some(s => s.id === story.id))
-              .filter(story => !filterAssignee || story.assignee === filterAssignee)
+              .filter(story => !filterAssignee || assigneesOf(story).includes(filterAssignee))
               .filter(story => !filterType || story.type === filterType)
               .map(story => (
                 <div key={story.id} className="bg-gray-700 p-4 rounded-lg border border-gray-600">

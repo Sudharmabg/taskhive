@@ -3,6 +3,8 @@ import Modal from '../common/Modal';
 import Button from '../common/Button';
 import AttachmentsSection from '../common/AttachmentsSection';
 import SubtasksSection from '../common/SubtasksSection';
+import TimeTrackingSection from '../common/TimeTrackingSection';
+import StoryHistory, { formatDateTime } from '../common/StoryHistory';
 import apiService from '../../services/api';
 import { 
   CalendarIcon, 
@@ -40,7 +42,7 @@ const ParentEpic = ({ epicId }) => {
         ) : (
           <span className="text-sm text-white">
             <span className="inline-flex px-2 py-0.5 mr-2 rounded-full text-xs font-medium bg-purple-100 text-purple-800">Epic</span>
-            {epic.storyId ? `${epic.storyId} – ` : ''}{epic.title}
+            {epic.storyId ? `${epic.storyId} â€“ ` : ''}{epic.title}
           </span>
         )}
       </div>
@@ -108,7 +110,7 @@ const EpicChildren = ({ epicId }) => {
  * Task Details Modal component
  * Shows comprehensive task information with attachments and metadata
  */
-const TaskDetailsModal = ({ isOpen, onClose, task, onEdit }) => {
+const TaskDetailsModal = ({ isOpen, onClose, task, onEdit, onDataChange }) => {
   if (!task) return null;
 
   const getModalTitle = () => {
@@ -213,6 +215,20 @@ const TaskDetailsModal = ({ isOpen, onClose, task, onEdit }) => {
                 <span className="text-sm text-gray-300">Created:</span>
                 <span className="text-sm font-medium text-white ml-2">{task.createdAt ? new Date(task.createdAt).toLocaleDateString() : 'N/A'}</span>
               </div>
+              <div className="flex items-center">
+                <UserIcon className="h-4 w-4 text-gray-400 mr-2" />
+                <span className="text-sm text-gray-300">Created by:</span>
+                <span className="text-sm font-medium text-white ml-2">{task.createdByName || 'Unknown'}</span>
+              </div>
+              {task.updatedByName && (
+                <div className="flex items-center">
+                  <UserIcon className="h-4 w-4 text-gray-400 mr-2" />
+                  <span className="text-sm text-gray-300">Last edited by:</span>
+                  <span className="text-sm font-medium text-white ml-2" title={formatDateTime(task.updatedAt)}>
+                    {task.updatedByName}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -267,10 +283,16 @@ const TaskDetailsModal = ({ isOpen, onClose, task, onEdit }) => {
         {!isEpicType(task.type) && task.epicId && <ParentEpic epicId={task.epicId} />}
 
         {/* Subtasks (Tasks and Bugs only) */}
-        {task.id && !isEpicType(task.type) && <SubtasksSection storyId={task.id} editable />}
+        {task.id && !isEpicType(task.type) && <SubtasksSection storyId={task.id} editable onChange={onDataChange} />}
+
+        {/* Estimate and time logs (Tasks and Bugs only) */}
+        {task.id && !isEpicType(task.type) && <TimeTrackingSection storyId={task.id} onChange={onDataChange} />}
 
         {/* Attachments */}
         {task.id && <AttachmentsSection storyId={task.id} />}
+
+        {/* Who created / edited it */}
+        {task.id && <StoryHistory storyId={task.id} refreshKey={task.updatedAt} />}
 
         {/* Actions */}
         <div className="flex justify-end space-x-3 pt-4 border-t border-gray-700">

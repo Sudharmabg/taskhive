@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
 import TaskSummaryTable from '../../components/common/TaskSummaryTable';
 import AddStoryModal from '../../components/modals/AddStoryModal';
-import { generateStoryId } from '../../utils/storyUtils';
+import { generateStoryId, filterStories, hasActiveFilters } from '../../utils/storyUtils';
 import { PlusIcon } from '@heroicons/react/outline';
 import { useStories } from '../../hooks/useStories';
 
@@ -12,7 +12,7 @@ import { useStories } from '../../hooks/useStories';
  * Handles bug story listing, filtering, and CRUD operations for Bugs only
  */
 const BugManagement = () => {
-  const { stories: bugs, loading, error, createStory, updateStory, deleteStory } = useStories('Bug');
+  const { stories: bugs, loading, error, createStory, updateStory, deleteStory, refreshStories } = useStories('Bug');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingBug, setEditingBug] = useState(null);
   const [filters, setFilters] = useState({
@@ -20,6 +20,9 @@ const BugManagement = () => {
     priority: 'All',
     search: ''
   });
+
+  const filteredBugs = useMemo(() => filterStories(bugs, filters), [bugs, filters]);
+  const filtersActive = hasActiveFilters(filters);
 
   const handleFilterChange = (filterType, value) => {
     setFilters(prev => ({
@@ -75,8 +78,7 @@ const BugManagement = () => {
       if (bug) {
         const updatedBug = {
           ...bug,
-          status: newStatus,
-          progress: newStatus === 'Completed' ? 100 : newStatus === 'In Progress' ? 50 : 0
+          status: newStatus
         };
         await updateStory(bugId, updatedBug);
       }
@@ -163,7 +165,9 @@ const BugManagement = () => {
           <div className="p-6 text-center text-red-400">Error: {error}</div>
         ) : (
           <TaskSummaryTable
-            tasks={bugs}
+            tasks={filteredBugs}
+            emptyMessage={filtersActive && bugs.length > 0 ? 'No bugs match these filters' : undefined}
+            onDataChange={refreshStories}
             onEdit={handleEditBug}
             onStatusChange={handleStatusChange}
             tableType="Bug"
