@@ -380,6 +380,71 @@ class ApiService {
     return this.request(`/audit?${params.toString()}`);
   }
 
+  // Ideas
+  getIdeas() {
+    return this.request('/ideas');
+  }
+
+  createIdea({ title, description, category }) {
+    return this.request('/ideas', {
+      method: 'POST',
+      body: JSON.stringify({ title, description, category }),
+    });
+  }
+
+  updateIdea(ideaId, { title, description, category }) {
+    return this.request(`/ideas/${ideaId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ title, description, category }),
+    });
+  }
+
+  setIdeaStatus(ideaId, status, note) {
+    return this.request(`/ideas/${ideaId}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status, note }),
+    });
+  }
+
+  toggleIdeaVote(ideaId) {
+    return this.request(`/ideas/${ideaId}/vote`, { method: 'POST' });
+  }
+
+  deleteIdea(ideaId) {
+    return this.request(`/ideas/${ideaId}`, { method: 'DELETE' });
+  }
+
+  // Leave
+  getMyLeaves() {
+    return this.request('/leaves/mine');
+  }
+
+  getAllLeaves(status) {
+    return this.request(`/leaves${status ? `?status=${encodeURIComponent(status)}` : ''}`);
+  }
+
+  getUpcomingLeaves(days = 14) {
+    return this.request(`/leaves/upcoming?days=${days}`);
+  }
+
+  applyLeave({ type, startDate, endDate, halfDay, reason }) {
+    return this.request('/leaves', {
+      method: 'POST',
+      body: JSON.stringify({ type, startDate, endDate, halfDay, reason }),
+    });
+  }
+
+  cancelLeave(leaveId) {
+    return this.request(`/leaves/${leaveId}/cancel`, { method: 'POST' });
+  }
+
+  reviewLeave(leaveId, decision, note) {
+    return this.request(`/leaves/${leaveId}/review`, {
+      method: 'POST',
+      body: JSON.stringify({ decision, note }),
+    });
+  }
+
   // Analytics endpoints
   getDashboardStats() {
     return this.request('/analytics/dashboard');

@@ -15,6 +15,8 @@ import SprintDetailPage from './pages/sprints/SprintDetailPage';
 import Analytics from './pages/analytics/Analytics';
 import AuditLog from './pages/audit/AuditLog';
 import SearchResults from './pages/search/SearchResults';
+import IdeasPage from './pages/ideas/IdeasPage';
+import LeavePage from './pages/leave/LeavePage';
 import Layout from './components/layout/Layout';
 import ErrorBoundary from './components/common/ErrorBoundary';
 
@@ -78,6 +80,8 @@ function App() {
             <Route path="analytics" element={<AdminRoute><Analytics /></AdminRoute>} />
             <Route path="audit" element={<AdminRoute><AuditLog /></AdminRoute>} />
             <Route path="search" element={<SearchResults />} />
+            <Route path="ideas" element={<IdeasPage />} />
+            <Route path="leave" element={<LeavePage />} />
           </Route>
         </Routes>
         </div>

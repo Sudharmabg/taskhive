@@ -11,7 +11,8 @@ import {
   CalendarIcon,
   ChartBarIcon,
   ShieldCheckIcon,
-  LogoutIcon 
+  LightBulbIcon,
+  SunIcon
 } from '@heroicons/react/outline';
 
 /**
@@ -29,6 +30,8 @@ const Sidebar = () => {
     { name: 'Epics', href: '/epics', icon: CollectionIcon },
     { name: 'Bugs', href: '/bugs', icon: ExclamationIcon },
     { name: 'Current Sprint', href: '/current-sprint', icon: CalendarIcon }, // All users can view current sprint
+    { name: 'Ideas', href: '/ideas', icon: LightBulbIcon },
+    { name: 'Leave', href: '/leave', icon: SunIcon },
     ...(userRole === 'admin' ? [
       { name: 'Teams', href: '/teams', icon: UserGroupIcon },
       { name: 'Sprints', href: '/sprints', icon: CalendarIcon }, // Admin can manage all sprints

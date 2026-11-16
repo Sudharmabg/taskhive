@@ -1,16 +1,24 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Button from './Button';
 import { UserGroupIcon } from '@heroicons/react/outline';
 
+const STAT_TILES = [
+  { key: 'completed', label: 'Completed', short: 'Done', color: 'text-green-400', bar: 'bg-green-500' },
+  { key: 'inProgress', label: 'In Progress', short: 'Active', color: 'text-blue-400', bar: 'bg-blue-500' },
+  { key: 'pending', label: 'Pending', short: 'Pend.', color: 'text-yellow-400', bar: 'bg-yellow-500' },
+  { key: 'overdue', label: 'Overdue', short: 'Late', color: 'text-red-400', bar: 'bg-red-500' },
+];
+
+const EMPTY_STATS = { total: 0, completed: 0, inProgress: 0, pending: 0, overdue: 0, completionRate: 0 };
+
 /**
  * TeamCard component for displaying team information
- * Shows team name, members, stats, and actions
+ * Shows team name, members, stats (Tasks and Bugs assigned to members), and actions
  */
 const TeamCard = ({ team, onEdit, onDelete }) => {
-  const { name, members = [], description } = team;
-  
-  // Default stats if not provided
-  const stats = team.stats || { completed: 0, pending: 0, overdue: 0 };
+  const { name, members = [], description, memberStats = [], onLeaveToday = [] } = team;
+  const stats = { ...EMPTY_STATS, ...(team.stats || {}) };
+  const [showMembers, setShowMembers] = useState(false);
 
   return (
     <div className="bg-gray-800 rounded-lg shadow-sm border border-gray-700 p-6">
@@ -52,23 +60,72 @@ const TeamCard = ({ team, onEdit, onDelete }) => {
         </div>
       </div>
 
+      {/* On leave today */}
+      {onLeaveToday.length > 0 && (
+        <p className="mb-4 text-xs" style={{ color: '#ffc44d' }}>
+          On leave today: {onLeaveToday.join(', ')}
+        </p>
+      )}
+
       {/* Stats */}
       <div className="mb-4">
-        <p className="text-sm font-medium text-gray-300 mb-2">Task Stats</p>
-        <div className="grid grid-cols-3 gap-2 text-center">
-          <div className="bg-gray-700 rounded-lg p-2">
-            <p className="text-lg font-bold text-green-400">{stats.completed}</p>
-            <p className="text-xs text-green-400">Completed</p>
-          </div>
-          <div className="bg-gray-700 rounded-lg p-2">
-            <p className="text-lg font-bold text-yellow-400">{stats.pending}</p>
-            <p className="text-xs text-yellow-400">Pending</p>
-          </div>
-          <div className="bg-gray-700 rounded-lg p-2">
-            <p className="text-lg font-bold text-red-400">{stats.overdue}</p>
-            <p className="text-xs text-red-400">Overdue</p>
-          </div>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-sm font-medium text-gray-300">Task Stats</p>
+          <p className="text-xs text-gray-400">
+            {stats.total} task{stats.total === 1 ? '' : 's'} & bugs · {stats.completionRate}% done
+          </p>
         </div>
+        <div className="grid grid-cols-4 gap-2 text-center">
+          {STAT_TILES.map(tile => (
+            <div key={tile.key} className="bg-gray-700 rounded-lg p-2">
+              <p className={`text-lg font-bold ${tile.color}`}>{stats[tile.key]}</p>
+              <p className={`text-xs ${tile.color}`}>{tile.label}</p>
+            </div>
+          ))}
+        </div>
+        {stats.total > 0 && (
+          <div className="flex h-1.5 mt-2 rounded-full overflow-hidden bg-gray-700" aria-hidden="true">
+            {STAT_TILES.map(tile => (
+              <div key={tile.key} className={tile.bar} style={{ width: `${(stats[tile.key] / stats.total) * 100}%` }} />
+            ))}
+          </div>
+        )}
+
+        {memberStats.length > 0 && (
+          <div className="mt-3">
+            <button
+              type="button"
+              onClick={() => setShowMembers(s => !s)}
+              className="text-xs hover:underline"
+              style={{ color: '#ffc44d' }}
+              aria-expanded={showMembers}
+            >
+              {showMembers ? 'Hide' : 'Show'} per-member breakdown
+            </button>
+            {showMembers && (
+              <table className="w-full mt-2 text-xs">
+                <thead>
+                  <tr className="text-gray-400">
+                    <th className="text-left font-medium py-1">Member</th>
+                    {STAT_TILES.map(tile => (
+                      <th key={tile.key} className={`text-right font-medium py-1 ${tile.color}`} title={tile.label}>{tile.short}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {memberStats.map(m => (
+                    <tr key={m.name} className="border-t border-gray-700">
+                      <td className="py-1 text-gray-200 truncate max-w-[8rem]" title={m.name}>{m.name}</td>
+                      {STAT_TILES.map(tile => (
+                        <td key={tile.key} className="py-1 text-right text-gray-200">{m.stats[tile.key]}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Actions */}
