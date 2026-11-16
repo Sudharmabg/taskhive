@@ -67,6 +67,19 @@ public class StoryController {
         }
     }
     
+    /** Tasks and Bugs linked to an epic. */
+    @GetMapping("/{id}/children")
+    public ResponseEntity<?> getEpicChildren(@PathVariable Long id) {
+        try {
+            return ResponseEntity.ok(storyService.getStoriesByEpicId(id));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "message", e.getMessage()
+            ));
+        }
+    }
+    
     @PostMapping
     public ResponseEntity<?> createStory(@RequestBody Story story) {
         log.info("[ENTRY] POST /api/stories - Title: {}, Type: {}", story.getTitle(), story.getType());

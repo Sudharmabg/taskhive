@@ -20,23 +20,9 @@ export const useStories = (type = null) => {
     }
   };
 
-  // Pending File objects travel with the form data; upload them after the story is saved
-  const splitAttachments = ({ newAttachments, ...rest }) => [rest, newAttachments || []];
-
-  const uploadPending = async (storyId, files) => {
-    if (!files.length) return;
-    try {
-      await apiService.uploadAttachments(storyId, files);
-    } catch (err) {
-      alert(`Saved, but some attachments failed to upload: ${err.message}`);
-    }
-  };
-
   const createStory = async (storyData) => {
     try {
-      const [data, files] = splitAttachments(storyData);
-      const newStory = await apiService.createStory(data);
-      await uploadPending(newStory.id, files);
+      const newStory = await apiService.createStory(storyData);
       setStories(prev => [...prev, newStory]);
       return newStory;
     } catch (err) {
@@ -47,9 +33,7 @@ export const useStories = (type = null) => {
 
   const updateStory = async (storyId, storyData) => {
     try {
-      const [data, files] = splitAttachments(storyData);
-      const updatedStory = await apiService.updateStory(storyId, data);
-      await uploadPending(storyId, files);
+      const updatedStory = await apiService.updateStory(storyId, storyData);
       setStories(prev => prev.map(s => s.id === storyId ? updatedStory : s));
       return updatedStory;
     } catch (err) {

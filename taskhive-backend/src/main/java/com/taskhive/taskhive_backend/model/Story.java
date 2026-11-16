@@ -66,6 +66,10 @@ public class Story {
     @Column(name = "sprint_id")
     private Long sprintId;
     
+    /** Parent epic for Tasks and Bugs (null for Epics or unlinked items). */
+    @Column(name = "epic_id")
+    private Long epicId;
+    
     @Column(name = "created_by")
     private Long createdBy;
     

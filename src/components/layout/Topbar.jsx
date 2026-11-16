@@ -9,14 +9,19 @@ const Topbar = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
 
-  // TODO: Replace with actual user data
-  const user = {
-    name: 'John Doe',
-    avatar: 'https://via.placeholder.com/32'
-  };
+  // Signed-in user, saved to localStorage by apiService.login()
+  const user = (() => {
+    try {
+      return JSON.parse(localStorage.getItem('user') || '{}') || {};
+    } catch {
+      return {};
+    }
+  })();
+  const displayName = user.name || user.username || 'User';
 
   const handleLogout = () => {
     localStorage.removeItem('isAuthenticated');
+    localStorage.removeItem('authToken');
     localStorage.removeItem('user');
     window.location.href = '/';
   };
@@ -47,7 +52,7 @@ const Topbar = () => {
               onClick={() => setShowDropdown(!showDropdown)}
               className="text-sm font-medium text-gray-300 hover:text-white focus:outline-none"
             >
-              {user.name}
+              {displayName}
             </button>
             
             {/* Dropdown Menu */}

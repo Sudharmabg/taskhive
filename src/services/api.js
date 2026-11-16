@@ -79,11 +79,40 @@ class ApiService {
     return this.request(`/stories?companyId=${companyId}`);
   }
 
-  createStory(storyData) {
-    return this.request('/stories', {
+  async createStory(storyData) {
+    const { newAttachments, newSubtasks, ...data } = storyData;
+    const story = await this.request('/stories', {
       method: 'POST',
-      body: JSON.stringify(storyData),
+      body: JSON.stringify(data),
     });
+    await this.savePendingItems(story.id, newAttachments, newSubtasks);
+    return story;
+  }
+
+  /**
+   * The story form collects attachments (File objects) and subtask titles before the
+   * story exists; save them once the story has an id. Failures are reported but do not
+   * undo the story save.
+   */
+  async savePendingItems(storyId, files = [], subtaskTitles = []) {
+    const failures = [];
+    if (files && files.length) {
+      try {
+        await this.uploadAttachments(storyId, files);
+      } catch (err) {
+        failures.push(`attachments (${err.message})`);
+      }
+    }
+    for (const title of subtaskTitles || []) {
+      try {
+        await this.createSubtask(storyId, title);
+      } catch (err) {
+        failures.push(`subtask "${title}" (${err.message})`);
+      }
+    }
+    if (failures.length) {
+      alert(`Saved, but some items could not be added: ${failures.join(', ')}`);
+    }
   }
 
   // Team endpoints
@@ -172,10 +201,43 @@ class ApiService {
     return this.request(`/stories/${storyId}`);
   }
 
-  updateStory(storyId, storyData) {
-    return this.request(`/stories/${storyId}`, {
+  async updateStory(storyId, storyData) {
+    const { newAttachments, newSubtasks, ...data } = storyData;
+    const story = await this.request(`/stories/${storyId}`, {
       method: 'PUT',
-      body: JSON.stringify(storyData),
+      body: JSON.stringify(data),
+    });
+    await this.savePendingItems(storyId, newAttachments, newSubtasks);
+    return story;
+  }
+
+  // Tasks and Bugs linked to an epic
+  getEpicChildren(epicId) {
+    return this.request(`/stories/${epicId}/children`);
+  }
+
+  // Subtask endpoints (Task / Bug)
+  getSubtasks(storyId) {
+    return this.request(`/stories/${storyId}/subtasks`);
+  }
+
+  createSubtask(storyId, title) {
+    return this.request(`/stories/${storyId}/subtasks`, {
+      method: 'POST',
+      body: JSON.stringify({ title }),
+    });
+  }
+
+  updateSubtask(subtaskId, changes) {
+    return this.request(`/subtasks/${subtaskId}`, {
+      method: 'PUT',
+      body: JSON.stringify(changes),
+    });
+  }
+
+  deleteSubtask(subtaskId) {
+    return this.request(`/subtasks/${subtaskId}`, {
+      method: 'DELETE',
     });
   }
 

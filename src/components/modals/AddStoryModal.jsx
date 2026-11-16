@@ -4,6 +4,7 @@ import Input from '../common/Input';
 import Modal from '../common/Modal';
 import apiService from '../../services/api';
 import AttachmentsSection from '../common/AttachmentsSection';
+import SubtasksSection from '../common/SubtasksSection';
 
 
 /**
@@ -30,10 +31,12 @@ const AddStoryModal = ({ isOpen, onClose, onSubmit, story = null, defaultType = 
     status: story?.status || 'Pending',
     storyPoints: story?.storyPoints || '',
     acceptanceCriteria: story?.acceptanceCriteria || '',
-
+    epicId: story?.epicId ?? '',
   });
 
   const [pendingFiles, setPendingFiles] = useState([]);
+  const [pendingSubtasks, setPendingSubtasks] = useState([]);
+  const [epics, setEpics] = useState([]);
   // Epics are assigned to the whole team, so they have no individual assignees
   const isEpic = (defaultType || formData.type || '').toLowerCase() === 'epic';
   const [errors, setErrors] = useState({});
@@ -45,6 +48,17 @@ const AddStoryModal = ({ isOpen, onClose, onSubmit, story = null, defaultType = 
       fetchUsers();
     }
   }, [isOpen]);
+
+  // Tasks and Bugs can be linked to an epic
+  useEffect(() => {
+    if (!isOpen || isEpic) return;
+    apiService.getStories()
+      .then(data => setEpics((data || []).filter(s => (s.type || '').toLowerCase() === 'epic')))
+      .catch(err => {
+        console.error('Failed to fetch epics:', err);
+        setEpics([]);
+      });
+  }, [isOpen, isEpic]);
 
   const fetchUsers = async () => {
     try {
@@ -111,7 +125,9 @@ const AddStoryModal = ({ isOpen, onClose, onSubmit, story = null, defaultType = 
         assignedTo: undefined, // Remove assignedTo array
         priority: formData.priority || null,
         status: formData.status || null,
-        newAttachments: pendingFiles // uploaded after the story is saved
+        epicId: isEpic || formData.epicId === '' ? null : Number(formData.epicId),
+        newAttachments: pendingFiles, // uploaded after the story is saved
+        newSubtasks: isEpic ? [] : pendingSubtasks // created after the story is saved
       };
       console.log('Calling onSubmit with data:', submitData);
       onSubmit(submitData);
@@ -124,9 +140,11 @@ const AddStoryModal = ({ isOpen, onClose, onSubmit, story = null, defaultType = 
         priority: 'Medium',
         status: 'Pending',
         storyPoints: '',
-        acceptanceCriteria: ''
+        acceptanceCriteria: '',
+        epicId: ''
       });
       setPendingFiles([]);
+      setPendingSubtasks([]);
     } else {
       console.log('Validation failed, form not submitted');
     }
@@ -321,6 +339,37 @@ const AddStoryModal = ({ isOpen, onClose, onSubmit, story = null, defaultType = 
             placeholder="Define what needs to be done for this story to be considered complete..."
           />
         </div>
+
+        {!isEpic && (
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">
+              Epic
+            </label>
+            <select
+              name="epicId"
+              value={formData.epicId}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:border-transparent"
+              style={{ '--tw-ring-color': '#ffc44d' }}
+            >
+              <option value="">No epic</option>
+              {epics.map(epic => (
+                <option key={epic.id} value={epic.id}>
+                  {epic.storyId ? `${epic.storyId} – ` : ''}{epic.title}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {!isEpic && (
+          <SubtasksSection
+            storyId={story?.id}
+            editable
+            pendingSubtasks={pendingSubtasks}
+            onPendingSubtasksChange={setPendingSubtasks}
+          />
+        )}
 
         <AttachmentsSection
           storyId={story?.id}

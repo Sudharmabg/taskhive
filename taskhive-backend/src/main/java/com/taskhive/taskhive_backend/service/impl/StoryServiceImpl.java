@@ -4,6 +4,7 @@ import com.taskhive.taskhive_backend.model.Story;
 import com.taskhive.taskhive_backend.model.Company;
 import com.taskhive.taskhive_backend.repository.AttachmentRepository;
 import com.taskhive.taskhive_backend.repository.StoryRepository;
+import com.taskhive.taskhive_backend.repository.SubtaskRepository;
 import com.taskhive.taskhive_backend.repository.CompanyRepository;
 import com.taskhive.taskhive_backend.service.StoryService;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +20,7 @@ public class StoryServiceImpl implements StoryService {
     private final StoryRepository storyRepository;
     private final CompanyRepository companyRepository;
     private final AttachmentRepository attachmentRepository;
+    private final SubtaskRepository subtaskRepository;
     
     @Override
     public List<Story> getAllStoriesByCompany(Long companyId) {
@@ -67,6 +69,8 @@ public class StoryServiceImpl implements StoryService {
         long count = storyRepository.count() + 1;
         story.setStoryId(prefix + String.format("%04d", count));
         
+        story.setEpicId(resolveEpicId(story.getType(), story.getEpicId()));
+        
         // Set created by (default to admin user ID 1 for now)
         if (story.getCreatedBy() == null) {
             story.setCreatedBy(1L);
@@ -89,6 +93,7 @@ public class StoryServiceImpl implements StoryService {
         existingStory.setProgress(story.getProgress());
         existingStory.setDeadline(story.getDeadline());
         existingStory.setAcceptanceCriteria(story.getAcceptanceCriteria());
+        existingStory.setEpicId(resolveEpicId(existingStory.getType(), story.getEpicId()));
         
         return storyRepository.save(existingStory);
     }
@@ -97,7 +102,32 @@ public class StoryServiceImpl implements StoryService {
     @Transactional
     public void deleteStory(Long id) {
         attachmentRepository.deleteByStoryId(id);
+        subtaskRepository.deleteByStoryId(id);
+        // Unlink tasks/bugs that belonged to this epic
+        List<Story> children = storyRepository.findByEpicId(id);
+        children.forEach(child -> child.setEpicId(null));
+        storyRepository.saveAll(children);
         storyRepository.deleteById(id);
+    }
+    
+    @Override
+    public List<Story> getStoriesByEpicId(Long epicId) {
+        return storyRepository.findByEpicId(epicId);
+    }
+    
+    /**
+     * Only Tasks and Bugs can belong to an epic, and the target must be an Epic.
+     */
+    private Long resolveEpicId(String type, Long epicId) {
+        if (epicId == null || type == null || type.equalsIgnoreCase("Epic")) {
+            return null;
+        }
+        Story epic = storyRepository.findById(epicId)
+            .orElseThrow(() -> new RuntimeException("Epic not found with id: " + epicId));
+        if (!"Epic".equalsIgnoreCase(epic.getType())) {
+            throw new RuntimeException("Story " + epicId + " is not an Epic");
+        }
+        return epicId;
     }
     
     @Override

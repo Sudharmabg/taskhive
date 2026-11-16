@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
 import AttachmentsSection from '../common/AttachmentsSection';
+import SubtasksSection from '../common/SubtasksSection';
+import apiService from '../../services/api';
 import { 
   CalendarIcon, 
   UserIcon, 
@@ -9,6 +11,98 @@ import {
 
   TagIcon 
 } from '@heroicons/react/outline';
+
+const isEpicType = (type) => (type || '').toLowerCase() === 'epic';
+
+/** Shows the parent epic of a Task/Bug. */
+const ParentEpic = ({ epicId }) => {
+  const [epic, setEpic] = useState(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setEpic(null);
+    setFailed(false);
+    apiService.getStory(epicId)
+      .then(data => { if (!cancelled) setEpic(data); })
+      .catch(() => { if (!cancelled) setFailed(true); });
+    return () => { cancelled = true; };
+  }, [epicId]);
+
+  return (
+    <div>
+      <h3 className="text-sm font-medium text-white mb-2">Epic</h3>
+      <div className="bg-gray-700 border border-gray-600 rounded-lg px-4 py-3">
+        {failed ? (
+          <span className="text-sm text-gray-400">Epic not found</span>
+        ) : !epic ? (
+          <span className="text-sm text-gray-400">Loading...</span>
+        ) : (
+          <span className="text-sm text-white">
+            <span className="inline-flex px-2 py-0.5 mr-2 rounded-full text-xs font-medium bg-purple-100 text-purple-800">Epic</span>
+            {epic.storyId ? `${epic.storyId} – ` : ''}{epic.title}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/** Lists the Tasks and Bugs linked to an epic. */
+const EpicChildren = ({ epicId }) => {
+  const [children, setChildren] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError('');
+    apiService.getEpicChildren(epicId)
+      .then(data => { if (!cancelled) setChildren(Array.isArray(data) ? data : []); })
+      .catch(err => { if (!cancelled) setError(err.message); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [epicId]);
+
+  const completed = children.filter(c => c.status === 'Completed').length;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-sm font-medium text-white">Linked Tasks & Bugs</h3>
+        {children.length > 0 && (
+          <span className="text-xs text-gray-400">{completed}/{children.length} completed</span>
+        )}
+      </div>
+      {loading ? (
+        <p className="text-sm text-gray-400">Loading...</p>
+      ) : error ? (
+        <p className="text-sm text-red-400">Failed to load linked items: {error}</p>
+      ) : children.length === 0 ? (
+        <div className="bg-gray-700 border border-gray-600 rounded-lg p-4">
+          <p className="text-gray-400 text-sm">No tasks or bugs linked to this epic yet.</p>
+        </div>
+      ) : (
+        <ul className="divide-y divide-gray-600 border border-gray-600 rounded-lg bg-gray-700">
+          {children.map(child => (
+            <li key={child.id} className="flex items-center justify-between px-3 py-2">
+              <div className="flex items-center min-w-0">
+                <span className={`inline-flex px-2 py-0.5 mr-2 rounded-full text-xs font-medium flex-shrink-0 ${
+                  child.type === 'Bug' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
+                }`}>
+                  {child.type}
+                </span>
+                <span className="text-sm text-white truncate">{child.title}</span>
+              </div>
+              <span className="ml-2 text-xs text-gray-400 flex-shrink-0">{child.status || 'Pending'}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+};
 
 /**
  * Task Details Modal component
@@ -167,6 +261,13 @@ const TaskDetailsModal = ({ isOpen, onClose, task, onEdit }) => {
             </p>
           </div>
         </div>
+
+        {/* Epic relationship */}
+        {task.id && isEpicType(task.type) && <EpicChildren epicId={task.id} />}
+        {!isEpicType(task.type) && task.epicId && <ParentEpic epicId={task.epicId} />}
+
+        {/* Subtasks (Tasks and Bugs only) */}
+        {task.id && !isEpicType(task.type) && <SubtasksSection storyId={task.id} editable />}
 
         {/* Attachments */}
         {task.id && <AttachmentsSection storyId={task.id} />}

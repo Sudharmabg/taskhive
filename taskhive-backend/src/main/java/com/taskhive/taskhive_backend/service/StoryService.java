@@ -14,6 +14,7 @@ public interface StoryService {
     Story createStory(Story story);
     Story updateStory(Long id, Story story);
     void deleteStory(Long id);
+    List<Story> getStoriesByEpicId(Long epicId);
     Story addStoryToSprint(Long storyId, Long sprintId);
     Story removeStoryFromSprint(Long storyId);
 }
