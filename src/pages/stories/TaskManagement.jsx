@@ -64,12 +64,11 @@ const TaskManagement = () => {
   };
 
   const handleDeleteTask = async (taskId) => {
-    if (window.confirm('Are you sure you want to delete this task?')) {
-      try {
-        await deleteStory(taskId);
-      } catch (err) {
-        console.error('Failed to delete task:', err);
-      }
+    try {
+      await deleteStory(taskId);
+    } catch (err) {
+      console.error('Failed to delete task:', err);
+      throw err;
     }
   };
 
@@ -170,6 +169,7 @@ const TaskManagement = () => {
             emptyMessage={filtersActive && tasks.length > 0 ? 'No tasks match these filters' : undefined}
             onDataChange={refreshStories}
             onEdit={handleEditTask}
+            onDelete={handleDeleteTask}
             onStatusChange={handleStatusChange}
             tableType="Task"
           />

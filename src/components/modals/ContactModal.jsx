@@ -7,7 +7,7 @@ import Input from '../common/Input';
  * Contact Modal component
  * Collects user details for getting started
  */
-const ContactModal = ({ isOpen, onClose, onSubmit }) => {
+const ContactModal = ({ isOpen, onClose, onSubmit, onSwitchToLogin }) => {
   const [formData, setFormData] = useState({
     name: '',
     company: '',
@@ -117,6 +117,23 @@ const ContactModal = ({ isOpen, onClose, onSubmit }) => {
           >
             Get Started
           </Button>
+        </div>
+
+        <div className="text-center pt-3 border-t border-gray-700/60 mt-4">
+          <p className="text-sm text-gray-400">
+            Already have an account?{' '}
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                if (onSwitchToLogin) onSwitchToLogin();
+              }}
+              className="font-medium hover:underline"
+              style={{ color: '#ffc44d' }}
+            >
+              Log in here
+            </button>
+          </p>
         </div>
       </form>
     </Modal>

@@ -63,12 +63,11 @@ const BugManagement = () => {
   };
 
   const handleDeleteBug = async (bugId) => {
-    if (window.confirm('Are you sure you want to delete this bug?')) {
-      try {
-        await deleteStory(bugId);
-      } catch (err) {
-        console.error('Failed to delete bug:', err);
-      }
+    try {
+      await deleteStory(bugId);
+    } catch (err) {
+      console.error('Failed to delete bug:', err);
+      throw err;
     }
   };
 
@@ -169,6 +168,7 @@ const BugManagement = () => {
             emptyMessage={filtersActive && bugs.length > 0 ? 'No bugs match these filters' : undefined}
             onDataChange={refreshStories}
             onEdit={handleEditBug}
+            onDelete={handleDeleteBug}
             onStatusChange={handleStatusChange}
             tableType="Bug"
           />

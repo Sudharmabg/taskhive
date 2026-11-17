@@ -63,12 +63,11 @@ const EpicManagement = () => {
   };
 
   const handleDeleteEpic = async (epicId) => {
-    if (window.confirm('Are you sure you want to delete this epic?')) {
-      try {
-        await deleteStory(epicId);
-      } catch (err) {
-        console.error('Failed to delete epic:', err);
-      }
+    try {
+      await deleteStory(epicId);
+    } catch (err) {
+      console.error('Failed to delete epic:', err);
+      throw err;
     }
   };
 
@@ -169,6 +168,7 @@ const EpicManagement = () => {
             emptyMessage={filtersActive && epics.length > 0 ? 'No epics match these filters' : undefined}
             onDataChange={refreshStories}
             onEdit={handleEditEpic}
+            onDelete={handleDeleteEpic}
             onStatusChange={handleStatusChange}
             tableType="Epic"
           />

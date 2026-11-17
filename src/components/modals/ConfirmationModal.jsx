@@ -1,7 +1,7 @@
 import React from 'react';
 import Button from '../common/Button';
 import Modal from '../common/Modal';
-import { ExclamationIcon } from '@heroicons/react/outline';
+import { ExclamationIcon, CheckCircleIcon } from '@heroicons/react/outline';
 
 /**
  * Confirmation Modal component
@@ -15,7 +15,7 @@ const ConfirmationModal = ({
   message = "Are you sure you want to proceed?",
   confirmText = "Confirm",
   cancelText = "Cancel",
-  variant = "danger" // danger, warning, info
+  variant = "danger" // danger, warning, success, info
 }) => {
   const handleConfirm = () => {
     onConfirm();
@@ -34,6 +34,11 @@ const ConfirmationModal = ({
           icon: 'text-yellow-400',
           button: 'bg-yellow-600 hover:bg-yellow-700 focus:ring-yellow-500'
         };
+      case 'success':
+        return {
+          icon: 'text-green-400',
+          button: 'bg-green-600 hover:bg-green-700 focus:ring-green-500'
+        };
       default:
         return {
           icon: 'text-blue-400',
@@ -43,13 +48,14 @@ const ConfirmationModal = ({
   };
 
   const styles = getVariantStyles();
+  const IconComponent = variant === 'success' ? CheckCircleIcon : ExclamationIcon;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={title} size="sm">
       <div className="space-y-4">
         <div className="flex items-center space-x-3">
           <div className={`flex-shrink-0 ${styles.icon}`}>
-            <ExclamationIcon className="h-6 w-6" />
+            <IconComponent className="h-6 w-6" />
           </div>
           <p className="text-gray-300">{message}</p>
         </div>

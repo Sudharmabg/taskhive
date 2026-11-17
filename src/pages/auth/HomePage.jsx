@@ -100,7 +100,18 @@ const HomePage = () => {
               >
                 Get started
               </button>
-              <button className="bg-gray-800 hover:bg-gray-700 text-white font-medium px-8 py-3 rounded-lg transition-colors">
+              <button 
+                onClick={() => setShowLoginModal(true)}
+                className="text-white border border-gray-600 hover:border-gray-500 font-semibold px-8 py-3 rounded-lg transition-colors"
+              >
+                Login
+              </button>
+              <button 
+                onClick={() => {
+                  document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="bg-gray-800 hover:bg-gray-700 text-white font-medium px-8 py-3 rounded-lg transition-colors"
+              >
                 Learn more
               </button>
             </div>
@@ -271,6 +282,7 @@ const HomePage = () => {
         isOpen={showContactModal}
         onClose={() => setShowContactModal(false)}
         onSubmit={handleContactSubmit}
+        onSwitchToLogin={() => setShowLoginModal(true)}
       />
 
       {/* Success Modal */}
