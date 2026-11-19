@@ -376,6 +376,7 @@ const SprintDetailPage = () => {
               setEditingStory(null);
             } catch (err) {
               console.error('Failed to update story:', err);
+              throw err; // the form shows the message
             }
           }}
           story={editingStory}

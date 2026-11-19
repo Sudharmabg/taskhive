@@ -127,10 +127,14 @@ const AddStoryModal = ({ isOpen, onClose, onSubmit, story = null, defaultType = 
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const [saveError, setSaveError] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    if (saving) return;
     console.log('Form submitted, starting validation...');
-    
+
     if (validateForm()) {
       console.log('Validation passed, preparing data...');
       // Send values as-is to match database constraints
@@ -146,7 +150,17 @@ const AddStoryModal = ({ isOpen, onClose, onSubmit, story = null, defaultType = 
         newSubtasks: isEpic ? [] : pendingSubtasks // created after the story is saved
       };
       console.log('Calling onSubmit with data:', submitData);
-      onSubmit(submitData);
+      // Keep what was typed if the save fails, and say why
+      setSaving(true);
+      setSaveError('');
+      try {
+        await onSubmit(submitData);
+      } catch (err) {
+        setSaveError(err?.message || 'Could not save. Please try again.');
+        return;
+      } finally {
+        setSaving(false);
+      }
       setFormData({
         title: '',
         description: '',
@@ -175,6 +189,7 @@ const AddStoryModal = ({ isOpen, onClose, onSubmit, story = null, defaultType = 
             label="Story Title"
             name="title"
             value={formData.title}
+            maxLength={200}
             onChange={handleInputChange}
             error={errors.title}
             required
@@ -286,6 +301,7 @@ const AddStoryModal = ({ isOpen, onClose, onSubmit, story = null, defaultType = 
             label="Story Points"
             name="storyPoints"
             type="number"
+            min="0"
             value={formData.storyPoints}
             onChange={handleInputChange}
             placeholder="e.g., 5"
@@ -417,6 +433,10 @@ const AddStoryModal = ({ isOpen, onClose, onSubmit, story = null, defaultType = 
           onPendingFilesChange={setPendingFiles}
         />
 
+        {saveError && (
+          <p className="text-sm text-red-400" role="alert">{saveError}</p>
+        )}
+
         <div className="flex justify-end space-x-3 pt-4">
           <Button
             type="button"
@@ -428,8 +448,9 @@ const AddStoryModal = ({ isOpen, onClose, onSubmit, story = null, defaultType = 
           <Button
             type="submit"
             variant="primary"
+            disabled={saving}
           >
-            {getButtonText()}
+            {saving ? 'Saving...' : getButtonText()}
           </Button>
         </div>
       </form>

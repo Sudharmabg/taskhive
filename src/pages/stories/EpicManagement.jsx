@@ -43,6 +43,7 @@ const EpicManagement = () => {
       setShowAddModal(false);
     } catch (err) {
       console.error('Failed to create epic:', err);
+      throw err; // the form shows the message
     }
   };
 
@@ -59,6 +60,7 @@ const EpicManagement = () => {
       setEditingEpic(null);
     } catch (err) {
       console.error('Failed to update epic:', err);
+      throw err; // the form shows the message
     }
   };
 

@@ -43,6 +43,7 @@ const BugManagement = () => {
       setShowAddModal(false);
     } catch (err) {
       console.error('Failed to create bug:', err);
+      throw err; // the form shows the message
     }
   };
 
@@ -59,6 +60,7 @@ const BugManagement = () => {
       setEditingBug(null);
     } catch (err) {
       console.error('Failed to update bug:', err);
+      throw err; // the form shows the message
     }
   };
 

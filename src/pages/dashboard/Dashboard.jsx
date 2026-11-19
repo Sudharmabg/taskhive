@@ -78,6 +78,7 @@ const Dashboard = () => {
       setShowAddModal(false);
     } catch (err) {
       console.error('Dashboard - Failed to create story:', err);
+      throw err; // the form shows the message
     }
   };
 
@@ -100,6 +101,7 @@ const Dashboard = () => {
       setEditingStory(null);
     } catch (err) {
       console.error('Failed to update story:', err);
+      throw err; // the form shows the message
     }
   };
 
@@ -210,10 +212,10 @@ const Dashboard = () => {
             console.log('Modal onSubmit called with editingStory:', editingStory);
             if (editingStory) {
               console.log('Calling handleUpdateStory');
-              handleUpdateStory(data);
+              return handleUpdateStory(data);
             } else {
               console.log('Calling handleStorySubmit');
-              handleStorySubmit(data);
+              return handleStorySubmit(data);
             }
           }}
           story={editingStory}

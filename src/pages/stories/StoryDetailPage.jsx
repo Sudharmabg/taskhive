@@ -48,7 +48,7 @@ const StoryDetailPage = () => {
       setEditing(false);
       await load();
     } catch (err) {
-      setSaveError(err.message);
+      throw err; // shown inside the edit form
     }
   };
 

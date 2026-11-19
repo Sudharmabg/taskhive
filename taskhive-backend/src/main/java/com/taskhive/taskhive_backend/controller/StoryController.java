@@ -5,6 +5,7 @@ import com.taskhive.taskhive_backend.service.StoryAccessService;
 import com.taskhive.taskhive_backend.service.StoryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -92,25 +93,31 @@ public class StoryController {
             log.info("[EXIT] POST /api/stories - Success: 200, Created ID: {}", createdStory.getStoryId());
             return ResponseEntity.ok(createdStory);
         } catch (Exception e) {
-            log.error("[EXIT] POST /api/stories - Error: {}", e.getMessage());
-            return ResponseEntity.badRequest().body(Map.of(
-                "success", false,
-                "message", e.getMessage()
-            ));
+            log.error("[EXIT] POST /api/stories - Error", e);
+            return saveFailed(e);
         }
     }
-    
+
     @PutMapping("/{id}")
     public ResponseEntity<?> updateStory(@PathVariable Long id, @RequestBody Story story) {
         try {
             Story updatedStory = storyService.updateStory(id, story);
             return ResponseEntity.ok(updatedStory);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of(
-                "success", false,
-                "message", e.getMessage()
-            ));
+            log.error("PUT /api/stories/{} - Error", id, e);
+            return saveFailed(e);
         }
+    }
+
+    /**
+     * A message the form can show. Database errors are summarised rather than passed on as
+     * SQL, and a missing message (Map.of rejects null) falls back to a generic one.
+     */
+    private static ResponseEntity<?> saveFailed(Exception e) {
+        String message = e instanceof DataIntegrityViolationException
+            ? "Couldn't save: a value is missing or too long"
+            : e.getMessage() != null ? e.getMessage() : "Couldn't save the item";
+        return ResponseEntity.badRequest().body(Map.of("success", false, "message", message));
     }
     
     @DeleteMapping("/{id}")

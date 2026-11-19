@@ -24,26 +24,18 @@ export const useStories = (type = null) => {
   // Re-read stories after something changed server-side (e.g. progress recalculated)
   const refreshStories = () => fetchStories({ silent: true });
 
+  // Save errors are thrown to the form that made the change; `error` is only for a failed
+  // load, since the pages swap the whole list for it
   const createStory = async (storyData) => {
-    try {
-      const newStory = await apiService.createStory(storyData);
-      setStories(prev => [...prev, newStory]);
-      return newStory;
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    }
+    const newStory = await apiService.createStory(storyData);
+    setStories(prev => [...prev, newStory]);
+    return newStory;
   };
 
   const updateStory = async (storyId, storyData) => {
-    try {
-      const updatedStory = await apiService.updateStory(storyId, storyData);
-      setStories(prev => prev.map(s => s.id === storyId ? updatedStory : s));
-      return updatedStory;
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    }
+    const updatedStory = await apiService.updateStory(storyId, storyData);
+    setStories(prev => prev.map(s => s.id === storyId ? updatedStory : s));
+    return updatedStory;
   };
 
   const deleteStory = async (storyId) => {

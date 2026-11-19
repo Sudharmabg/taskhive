@@ -43,6 +43,7 @@ const SearchResults = () => {
       setEditingStory(null);
     } catch (err) {
       console.error('Failed to update item:', err);
+      throw err; // the form shows the message
     }
   };
 

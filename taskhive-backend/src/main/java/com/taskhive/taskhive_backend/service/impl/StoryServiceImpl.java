@@ -69,22 +69,24 @@ public class StoryServiceImpl implements StoryService {
     
     @Override
     public Story createStory(Story story) {
-        // Set company if not set (default to company 1)
+        Optional<User> currentUser = currentUserService.get();
+        validate(story);
+        story.setType(normalizeType(story.getType()));
+
+        // The signed-in user's company, else the default company
         if (story.getCompany() == null) {
-            Company company = companyRepository.findById(1L)
+            // getId() doesn't initialise the lazy proxy; load the row itself for its code
+            Long companyId = currentUser.map(User::getCompany).map(Company::getId).orElse(1L);
+            Company company = companyRepository.findById(companyId)
+                .or(() -> companyRepository.findById(1L))
                 .orElseThrow(() -> new RuntimeException("Default company not found"));
             story.setCompany(company);
         }
-        
-        // Generate story ID based on type and company
-        String prefix = story.getCompany().getCode() + "-" + 
-                       story.getType().substring(0, 1);
-        long count = storyRepository.count() + 1;
-        story.setStoryId(prefix + String.format("%04d", count));
-        
+
+        story.setStoryId(nextStoryId(story.getCompany(), story.getType()));
+
         story.setEpicId(resolveEpicId(story.getType(), story.getEpicId(), null));
 
-        Optional<User> currentUser = currentUserService.get();
         story.setTeamId(resolveTeamId(story, currentUser.orElse(null), null));
 
         // Never trust client-supplied attribution, progress or estimate
@@ -104,6 +106,7 @@ public class StoryServiceImpl implements StoryService {
     @Override
     public Story updateStory(Long id, Story story) {
         Story existingStory = getStoryById(id);
+        validate(story);
         Long previousEpicId = existingStory.getEpicId();
         Long newEpicId = resolveEpicId(existingStory.getType(), story.getEpicId(), previousEpicId);
         Long previousTeamId = existingStory.getTeamId();
@@ -175,6 +178,64 @@ public class StoryServiceImpl implements StoryService {
         return storyRepository.findByEpicId(epicId);
     }
     
+    private static final int MAX_TITLE = 200;
+    private static final int MAX_ASSIGNEES = 1000;
+    private static final int MAX_SHORT = 20;
+
+    /**
+     * Reject input the database would refuse, with a message the form can show, instead of
+     * letting the insert fail with a SQL error.
+     */
+    private static void validate(Story story) {
+        String title = story.getTitle() == null ? "" : story.getTitle().trim();
+        if (title.isEmpty()) throw new IllegalArgumentException("Title is required");
+        if (title.length() > MAX_TITLE) {
+            throw new IllegalArgumentException("Title can be at most " + MAX_TITLE + " characters");
+        }
+        story.setTitle(title);
+        if (story.getAssigneeName() != null && story.getAssigneeName().length() > MAX_ASSIGNEES) {
+            throw new IllegalArgumentException("Too many assignees");
+        }
+        if (story.getPriority() != null && story.getPriority().length() > MAX_SHORT) {
+            throw new IllegalArgumentException("Unknown priority: " + story.getPriority());
+        }
+        if (story.getStatus() != null && story.getStatus().length() > MAX_SHORT) {
+            throw new IllegalArgumentException("Unknown status: " + story.getStatus());
+        }
+        if (story.getStoryPoints() != null && story.getStoryPoints() < 0) {
+            throw new IllegalArgumentException("Story points can't be negative");
+        }
+    }
+
+    /** Epic, Task or Bug, in that spelling, whatever case the client sent. */
+    private static String normalizeType(String type) {
+        if (type != null) {
+            for (String t : List.of("Epic", "Task", "Bug")) {
+                if (t.equalsIgnoreCase(type.trim())) return t;
+            }
+        }
+        throw new IllegalArgumentException("Type must be Epic, Task or Bug");
+    }
+
+    /**
+     * Next key such as ABC-T0013: one past the highest number already used with this prefix.
+     * Counting rows instead would hand out a taken key after any delete.
+     */
+    private String nextStoryId(Company company, String type) {
+        String code = company.getCode() != null && !company.getCode().isBlank() ? company.getCode().trim() : "TH";
+        String prefix = code + "-" + type.charAt(0);
+        int max = 0;
+        for (String key : storyRepository.findStoryIdsByPrefix(prefix)) {
+            String rest = key.substring(prefix.length());
+            if (rest.matches("\\d{1,9}")) max = Math.max(max, Integer.parseInt(rest));
+        }
+        String candidate;
+        do {
+            candidate = prefix + String.format("%04d", ++max);
+        } while (storyRepository.existsByStoryId(candidate));
+        return candidate;
+    }
+
     private String epicLabel(Long epicId) {
         if (epicId == null) return null;
         return storyRepository.findById(epicId)

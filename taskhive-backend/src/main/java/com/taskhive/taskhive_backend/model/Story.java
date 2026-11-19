@@ -49,7 +49,8 @@ public class Story {
     @Column(name = "assignee_id")
     private Long assigneeId;
     
-    @Column(name = "assignee_name", length = 100)
+    /** Comma-separated assignee names; long enough for a large team. */
+    @Column(name = "assignee_name", length = 1000)
     private String assigneeName;
     
     @Column(name = "story_points")

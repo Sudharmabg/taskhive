@@ -24,6 +24,8 @@ public class SchemaFixes implements ApplicationRunner {
         // sized the column for them. Custom roles need both lifted.
         "ALTER TABLE users DROP CONSTRAINT IF EXISTS users_job_role_check",
         "ALTER TABLE users ALTER COLUMN job_role TYPE VARCHAR(50)",
+        // Several assignees joined by commas overflowed 100 characters and failed the insert
+        "ALTER TABLE stories ALTER COLUMN assignee_name TYPE VARCHAR(1000)",
     };
 
     private final JdbcTemplate jdbcTemplate;

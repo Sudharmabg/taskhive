@@ -44,6 +44,7 @@ const TaskManagement = () => {
       setShowAddModal(false);
     } catch (err) {
       console.error('Failed to create task:', err);
+      throw err; // the form shows the message
     }
   };
 
@@ -60,6 +61,7 @@ const TaskManagement = () => {
       setEditingTask(null);
     } catch (err) {
       console.error('Failed to update task:', err);
+      throw err; // the form shows the message
     }
   };
 
