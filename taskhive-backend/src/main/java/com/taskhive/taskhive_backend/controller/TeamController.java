@@ -219,6 +219,11 @@ public class TeamController {
                 userRepository.save(user);
             }
             
+            // Its stories become team-less (admins and assignees still see them)
+            List<Story> owned = storyRepository.findByTeamId(id);
+            owned.forEach(s -> s.setTeamId(null));
+            storyRepository.saveAll(owned);
+
             // Then delete the team
             teamRepository.deleteById(id);
             

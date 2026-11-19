@@ -54,7 +54,7 @@ public class DataInitializer implements CommandLineRunner {
         admin.setEmail(ADMIN_EMAIL);
         admin.setPassword(passwordEncoder.encode(ADMIN_PASSWORD)); // encodes 'root123'
         admin.setDesignation("Administrator");
-        admin.setJobRole(User.JobRole.BE);
+        admin.setJobRole("BE");
         admin.setRole(User.Role.ADMIN);
         admin.setStatus(User.Status.ACTIVE);
         userRepository.save(admin);
@@ -78,7 +78,7 @@ public class DataInitializer implements CommandLineRunner {
             admin.setEmail(ADMIN_EMAIL);
             admin.setPassword(passwordEncoder.encode(ADMIN_PASSWORD)); // encodes 'root123'
             admin.setDesignation("Administrator");
-            admin.setJobRole(User.JobRole.BE);
+            admin.setJobRole("BE");
             admin.setRole(User.Role.ADMIN);
             admin.setStatus(User.Status.ACTIVE);
             userRepository.save(admin);

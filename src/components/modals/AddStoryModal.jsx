@@ -32,7 +32,12 @@ const AddStoryModal = ({ isOpen, onClose, onSubmit, story = null, defaultType = 
     storyPoints: story?.storyPoints || '',
     acceptanceCriteria: story?.acceptanceCriteria || '',
     epicId: story?.epicId ?? '',
+    teamId: story?.teamId ?? '',
   });
+
+  // Only admins choose the owning team; everyone else's items go to their own team
+  const isAdmin = apiService.getCurrentUser().role === 'admin';
+  const [teams, setTeams] = useState([]);
 
   const [pendingFiles, setPendingFiles] = useState([]);
   const [pendingSubtasks, setPendingSubtasks] = useState([]);
@@ -59,6 +64,16 @@ const AddStoryModal = ({ isOpen, onClose, onSubmit, story = null, defaultType = 
         setEpics([]);
       });
   }, [isOpen, isEpic]);
+
+  useEffect(() => {
+    if (!isOpen || !isAdmin) return;
+    apiService.getTeams()
+      .then(data => setTeams(Array.isArray(data) ? data : []))
+      .catch(err => {
+        console.error('Failed to fetch teams:', err);
+        setTeams([]);
+      });
+  }, [isOpen, isAdmin]);
 
   const fetchUsers = async () => {
     try {
@@ -126,6 +141,7 @@ const AddStoryModal = ({ isOpen, onClose, onSubmit, story = null, defaultType = 
         priority: formData.priority || null,
         status: formData.status || null,
         epicId: isEpic || formData.epicId === '' ? null : Number(formData.epicId),
+        teamId: formData.teamId === '' ? null : Number(formData.teamId),
         newAttachments: pendingFiles, // uploaded after the story is saved
         newSubtasks: isEpic ? [] : pendingSubtasks // created after the story is saved
       };
@@ -141,7 +157,8 @@ const AddStoryModal = ({ isOpen, onClose, onSubmit, story = null, defaultType = 
         status: 'Pending',
         storyPoints: '',
         acceptanceCriteria: '',
-        epicId: ''
+        epicId: '',
+        teamId: ''
       });
       setPendingFiles([]);
       setPendingSubtasks([]);
@@ -339,6 +356,28 @@ const AddStoryModal = ({ isOpen, onClose, onSubmit, story = null, defaultType = 
             placeholder="Define what needs to be done for this story to be considered complete..."
           />
         </div>
+
+        {isAdmin && (
+          <div>
+            <label htmlFor="story-team" className="block text-sm font-medium text-gray-300 mb-1">
+              Team
+            </label>
+            <select
+              id="story-team"
+              name="teamId"
+              value={formData.teamId}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:border-transparent"
+              style={{ '--tw-ring-color': '#ffc44d' }}
+            >
+              <option value="">{isEpic ? 'No team' : 'No team (uses the epic\'s team if linked)'}</option>
+              {teams.map(team => (
+                <option key={team.id} value={team.id}>{team.name}</option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-400">Only members of this team (and admins) can see it.</p>
+          </div>
+        )}
 
         {!isEpic && (
           <div>

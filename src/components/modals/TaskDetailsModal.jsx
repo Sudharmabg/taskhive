@@ -9,10 +9,11 @@ import apiService from '../../services/api';
 import { 
   CalendarIcon, 
   UserIcon, 
-  FlagIcon,
-
-  TagIcon 
+  FlagIcon
 } from '@heroicons/react/outline';
+import TypeBadge from '../common/TypeBadge';
+import { Link } from 'react-router-dom';
+import { getEffectiveStatus, getStoryPath } from '../../utils/storyUtils';
 
 const isEpicType = (type) => (type || '').toLowerCase() === 'epic';
 
@@ -40,10 +41,10 @@ const ParentEpic = ({ epicId }) => {
         ) : !epic ? (
           <span className="text-sm text-gray-400">Loading...</span>
         ) : (
-          <span className="text-sm text-white">
-            <span className="inline-flex px-2 py-0.5 mr-2 rounded-full text-xs font-medium bg-purple-100 text-purple-800">Epic</span>
+          <Link to={getStoryPath(epic)} className="inline-flex items-center text-sm text-white hover:text-yellow-400 hover:underline">
+            <TypeBadge type="Epic" className="mr-2" />
             {epic.storyId ? `${epic.storyId} – ` : ''}{epic.title}
-          </span>
+          </Link>
         )}
       </div>
     </div>
@@ -88,16 +89,19 @@ const EpicChildren = ({ epicId }) => {
       ) : (
         <ul className="divide-y divide-gray-600 border border-gray-600 rounded-lg bg-gray-700">
           {children.map(child => (
-            <li key={child.id} className="flex items-center justify-between px-3 py-2">
-              <div className="flex items-center min-w-0">
-                <span className={`inline-flex px-2 py-0.5 mr-2 rounded-full text-xs font-medium flex-shrink-0 ${
-                  child.type === 'Bug' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
-                }`}>
-                  {child.type}
-                </span>
-                <span className="text-sm text-white truncate">{child.title}</span>
-              </div>
-              <span className="ml-2 text-xs text-gray-400 flex-shrink-0">{child.status || 'Pending'}</span>
+            <li key={child.id}>
+              <Link
+                to={getStoryPath(child)}
+                className="flex items-center justify-between px-3 py-2 hover:bg-gray-600 focus:outline-none focus:bg-gray-600 group"
+                title={`Open ${child.storyId || child.title}`}
+              >
+                <div className="flex items-center min-w-0">
+                  <TypeBadge type={child.type} className="mr-2 flex-shrink-0" />
+                  {child.storyId && <span className="text-xs text-gray-400 mr-2 flex-shrink-0">{child.storyId}</span>}
+                  <span className="text-sm text-white truncate group-hover:text-yellow-400 group-hover:underline">{child.title}</span>
+                </div>
+                <span className="ml-2 text-xs text-gray-400 flex-shrink-0">{getEffectiveStatus(child)}</span>
+              </Link>
             </li>
           ))}
         </ul>
@@ -106,65 +110,29 @@ const EpicChildren = ({ epicId }) => {
   );
 };
 
+const getPriorityColor = (priority) => {
+  const colors = {
+    'Critical': 'text-red-600',
+    'High': 'text-orange-600',
+    'Medium': 'text-yellow-600',
+    'Low': 'text-green-600'
+  };
+  return colors[priority] || 'text-gray-600';
+};
+
 /**
- * Task Details Modal component
- * Shows comprehensive task information with attachments and metadata
+ * Full details of an Epic, Task or Bug: info, linked items, subtasks, time, files, history.
+ * Shared by the details modal and the story page.
  */
-const TaskDetailsModal = ({ isOpen, onClose, task, onEdit, onDataChange }) => {
-  if (!task) return null;
-
-  const getModalTitle = () => {
-    const type = task.type || task.label || 'Story';
-    return `${type} Details`;
-  };
-
-  const getEditButtonText = () => {
-    const type = task.type || task.label || 'Story';
-    return `Edit ${type}`;
-  };
-
-  const getLabelColor = (label) => {
-    const colors = {
-      'Bug': 'bg-red-100 text-red-800',
-      'Epic': 'bg-purple-100 text-purple-800',
-      'Task': 'bg-blue-100 text-blue-800'
-    };
-    return colors[label] || 'bg-gray-100 text-gray-800';
-  };
-
-  const getTypeColor = (type) => {
-    const colors = {
-      'Bug': 'bg-red-100 text-red-800',
-      'Epic': 'bg-purple-100 text-purple-800', 
-      'Task': 'bg-blue-100 text-blue-800'
-    };
-    return colors[type] || 'bg-gray-100 text-gray-800';
-  };
-
-  const getPriorityColor = (priority) => {
-    const colors = {
-      'Critical': 'text-red-600',
-      'High': 'text-orange-600',
-      'Medium': 'text-yellow-600',
-      'Low': 'text-green-600'
-    };
-    return colors[priority] || 'text-gray-600';
-  };
-
-
-
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} title={getModalTitle()} size="lg">
+export const TaskDetailsBody = ({ task, onDataChange }) => (
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
             <h2 className="text-xl font-semibold text-white mb-2">{task.title}</h2>
             <div className="flex items-center space-x-2">
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-700 text-gray-300 border border-gray-600">
-                <TagIcon className="h-3 w-3 mr-1" />
-                {task.label || task.type || 'Task'}
-              </span>
+              <TypeBadge type={task.type || task.label || 'Task'} />
+              {task.storyId && <span className="text-xs text-gray-400">{task.storyId}</span>}
               <span className={`inline-flex items-center text-sm font-medium ${getPriorityColor(task.priority)}`}>
                 <FlagIcon className="h-4 w-4 mr-1" />
                 {task.priority}
@@ -293,6 +261,22 @@ const TaskDetailsModal = ({ isOpen, onClose, task, onEdit, onDataChange }) => {
 
         {/* Who created / edited it */}
         {task.id && <StoryHistory storyId={task.id} refreshKey={task.updatedAt} />}
+      </div>
+);
+
+/**
+ * Task Details Modal component
+ * Shows comprehensive task information with attachments and metadata
+ */
+const TaskDetailsModal = ({ isOpen, onClose, task, onEdit, onDataChange }) => {
+  if (!task) return null;
+
+  const type = task.type || task.label || 'Story';
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title={`${type} Details`} size="lg">
+      <div className="space-y-6">
+        <TaskDetailsBody task={task} onDataChange={onDataChange} />
 
         {/* Actions */}
         <div className="flex justify-end space-x-3 pt-4 border-t border-gray-700">
@@ -306,7 +290,7 @@ const TaskDetailsModal = ({ isOpen, onClose, task, onEdit, onDataChange }) => {
               onEdit && onEdit(task.id);
             }}
           >
-            {getEditButtonText()}
+            {`Edit ${type}`}
           </Button>
         </div>
       </div>

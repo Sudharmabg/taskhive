@@ -70,6 +70,10 @@ public class Story {
     /** Parent epic for Tasks and Bugs (null for Epics or unlinked items). */
     @Column(name = "epic_id")
     private Long epicId;
+
+    /** Team that owns this item; only that team (and admins) can see it. */
+    @Column(name = "team_id")
+    private Long teamId;
     
     @Column(name = "created_by")
     private Long createdBy;

@@ -2,6 +2,7 @@ package com.taskhive.taskhive_backend.controller;
 
 import com.taskhive.taskhive_backend.model.AuditLog;
 import com.taskhive.taskhive_backend.repository.AuditLogRepository;
+import com.taskhive.taskhive_backend.service.CurrentUserService;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -21,6 +22,7 @@ import java.util.Map;
 public class AuditController {
 
     private final AuditLogRepository auditLogRepository;
+    private final CurrentUserService currentUserService;
 
     /** History of a single Epic/Task/Bug, newest first. */
     @GetMapping("/stories/{storyId}/history")
@@ -37,6 +39,10 @@ public class AuditController {
                                     @RequestParam(required = false) String search,
                                     @RequestParam(defaultValue = "0") int page,
                                     @RequestParam(defaultValue = "25") int size) {
+        // The company-wide trail covers every team's work
+        if (!CurrentUserService.isAdmin(currentUserService.get().orElse(null))) {
+            return ResponseEntity.status(403).body(Map.of("success", false, "message", "Only admins can view the audit log"));
+        }
         Specification<AuditLog> spec = (root, query, cb) -> {
             List<Predicate> p = new ArrayList<>();
             if (companyId != null) {

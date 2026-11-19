@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import Button from '../common/Button';
 import Input from '../common/Input';
 import Modal from '../common/Modal';
+import JobRoleField from '../common/JobRoleField';
 
 /**
  * Add Team Member Modal component
@@ -56,8 +57,8 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSubmit, teams = [] }) => {
       newErrors.designation = 'Designation is required';
     }
     
-    if (!formData.jobRole) {
-      newErrors.jobRole = 'Please select a job role';
+    if (!formData.jobRole.trim()) {
+      newErrors.jobRole = 'Please select or type a job role';
     }
     
 
@@ -70,7 +71,7 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSubmit, teams = [] }) => {
     e.preventDefault();
     
     if (validateForm()) {
-      onSubmit(formData);
+      onSubmit({ ...formData, jobRole: formData.jobRole.trim() });
       setFormData({
         employeeId: '',
         name: '',
@@ -130,32 +131,15 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSubmit, teams = [] }) => {
             required
           />
 
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
-              Job Role <span className="text-red-400">*</span>
-            </label>
-            <select
-              name="jobRole"
-              value={formData.jobRole}
-              onChange={handleInputChange}
-              className={`w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:border-transparent ${
-                errors.jobRole ? 'border-red-400' : ''
-              }`}
-              style={{ '--tw-ring-color': errors.jobRole ? '#ef4444' : '#ffc44d' }}
-              required
-            >
-              <option value="">Select job role</option>
-              <option value="UI">UI</option>
-              <option value="BE">BE</option>
-              <option value="QA">QA</option>
-              <option value="DevOps">DevOps</option>
-              <option value="FullStack">Full Stack Developer</option>
-              <option value="AI">AI</option>
-            </select>
-            {errors.jobRole && (
-              <p className="mt-1 text-sm text-red-400">{errors.jobRole}</p>
-            )}
-          </div>
+          <JobRoleField
+            id="new-member-job-role"
+            value={formData.jobRole}
+            onChange={(jobRole) => {
+              setFormData(prev => ({ ...prev, jobRole }));
+              if (errors.jobRole) setErrors(prev => ({ ...prev, jobRole: '' }));
+            }}
+            error={errors.jobRole}
+          />
 
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import TypeBadge from '../common/TypeBadge';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
 import { CalendarIcon, PlusIcon } from '@heroicons/react/outline';
@@ -28,14 +29,6 @@ const SprintDetailsModal = ({ isOpen, onClose, sprint }) => {
     return availableStories.find(story => story.id === storyId);
   };
 
-  const getTypeColor = (type) => {
-    const colors = {
-      'Epic': 'bg-purple-100 text-purple-800',
-      'Task': 'bg-blue-100 text-blue-800',
-      'Bug': 'bg-red-100 text-red-800'
-    };
-    return colors[type] || 'bg-gray-100 text-gray-800';
-  };
 
   if (!sprint) return null;
 
@@ -77,9 +70,7 @@ const SprintDetailsModal = ({ isOpen, onClose, sprint }) => {
                     <div className="text-sm font-medium text-white">{story.title}</div>
                     <div className="flex items-center space-x-2 mt-1">
                       <span className="text-xs text-gray-400">{story.id}</span>
-                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getTypeColor(story.type)}`}>
-                        {story.type}
-                      </span>
+                      <TypeBadge type={story.type} />
                     </div>
                   </div>
                   <button
@@ -105,9 +96,7 @@ const SprintDetailsModal = ({ isOpen, onClose, sprint }) => {
                     <div className="text-sm font-medium text-white">{story.title}</div>
                     <div className="flex items-center space-x-2 mt-1">
                       <span className="text-xs text-gray-400">{story.id}</span>
-                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getTypeColor(story.type)}`}>
-                        {story.type}
-                      </span>
+                      <TypeBadge type={story.type} />
                     </div>
                   </div>
                   <button

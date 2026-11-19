@@ -3,6 +3,7 @@ package com.taskhive.taskhive_backend.controller;
 import com.taskhive.taskhive_backend.model.Sprint;
 import com.taskhive.taskhive_backend.model.Story;
 import com.taskhive.taskhive_backend.service.SprintService;
+import com.taskhive.taskhive_backend.service.StoryAccessService;
 import com.taskhive.taskhive_backend.service.StoryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +22,7 @@ public class SprintController {
     
     private final SprintService sprintService;
     private final StoryService storyService;
+    private final StoryAccessService storyAccessService;
     
     @GetMapping
     public ResponseEntity<?> getAllSprints(@RequestParam Long companyId) {
@@ -42,7 +44,7 @@ public class SprintController {
     public ResponseEntity<?> getSprintById(@PathVariable Long id) {
         try {
             Sprint sprint = sprintService.getSprintById(id);
-            List<Story> stories = storyService.getStoriesBySprintId(id);
+            List<Story> stories = storyAccessService.visible(storyService.getStoriesBySprintId(id));
             
             Map<String, Object> response = Map.of(
                 "sprint", sprint,
@@ -63,7 +65,7 @@ public class SprintController {
         log.info("[ENTRY] GET /api/sprints/current - companyId: {}", companyId);
         try {
             Sprint sprint = sprintService.getCurrentSprint(companyId);
-            List<Story> stories = storyService.getStoriesBySprintId(sprint.getId());
+            List<Story> stories = storyAccessService.visible(storyService.getStoriesBySprintId(sprint.getId()));
             
             Map<String, Object> response = Map.of(
                 "sprint", sprint,

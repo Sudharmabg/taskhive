@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import TypeBadge from '../../components/common/TypeBadge';
 import { useParams, useNavigate } from 'react-router-dom';
 import { CalendarIcon, PlusIcon, ArrowLeftIcon } from '@heroicons/react/outline';
 import Button from '../../components/common/Button';
@@ -54,14 +55,6 @@ const SprintDetailPage = () => {
     }
   };
 
-  const getTypeColor = (type) => {
-    const colors = {
-      'Epic': 'bg-purple-900 text-purple-300',
-      'Task': 'bg-blue-900 text-blue-300',
-      'Bug': 'bg-red-900 text-red-300'
-    };
-    return colors[type] || 'bg-gray-700 text-gray-300';
-  };
 
   const getStatusColor = (status) => {
     const colors = {
@@ -250,9 +243,7 @@ const SprintDetailPage = () => {
                   )}
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getTypeColor(story.type)}`}>
-                    {story.type}
-                  </span>
+                  <TypeBadge type={story.type} />
                   <div className="flex items-center space-x-2">
                     <div className="w-16 bg-gray-600 rounded-full h-1.5">
                       <div 
@@ -325,9 +316,7 @@ const SprintDetailPage = () => {
                     )}
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getTypeColor(story.type)}`}>
-                      {story.type}
-                    </span>
+                    <TypeBadge type={story.type} />
                     <div className="flex items-center space-x-2">
                       <div className="w-16 bg-gray-600 rounded-full h-1.5">
                         <div 

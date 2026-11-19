@@ -21,6 +21,10 @@ public interface AttachmentRepository extends JpaRepository<Attachment, Long> {
 
     long countBySubtaskId(Long subtaskId);
 
+    /** Owning story id without loading the file contents. */
+    @Query("select a.storyId from Attachment a where a.id = :id")
+    java.util.Optional<Long> findStoryIdById(@Param("id") Long id);
+
     /** Deletes story-level and subtask attachments of the story. */
     @Modifying
     @Transactional

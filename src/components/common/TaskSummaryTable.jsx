@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import TaskDetailsModal from '../modals/TaskDetailsModal';
 import ConfirmationModal from '../modals/ConfirmationModal';
 import { getEffectiveStatus } from '../../utils/storyUtils';
+import TypeBadge from './TypeBadge';
 
 const STATUS_BADGE = {
   'Completed': 'bg-green-500 text-white',
@@ -139,9 +140,13 @@ const TaskSummaryTable = ({ tasks = [], onEdit, onDelete, onStatusChange, onData
             return (
             <tr key={task.id} className={`hover:bg-gray-700/50 ${ROW_ACCENT[status] || ''}`}>
               <td className="px-6 py-4 whitespace-nowrap cursor-pointer hover:bg-gray-600/30" onClick={() => handleViewDetails(task)}>
-                <div className="text-sm font-semibold text-white hover:text-yellow-400 hover:underline">
-                  {task.title}
+                <div className="flex items-center gap-2">
+                  <TypeBadge type={task.type || (tableType !== 'Story' ? tableType : null)} />
+                  <span className="text-sm font-semibold text-white hover:text-yellow-400 hover:underline">
+                    {task.title}
+                  </span>
                 </div>
+                {task.storyId && <div className="text-xs text-gray-400 mt-1">{task.storyId}</div>}
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
                 <div className="text-sm font-medium text-gray-200">

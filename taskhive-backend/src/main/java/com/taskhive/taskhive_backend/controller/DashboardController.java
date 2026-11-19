@@ -1,5 +1,6 @@
 package com.taskhive.taskhive_backend.controller;
 
+import com.taskhive.taskhive_backend.service.StoryAccessService;
 import com.taskhive.taskhive_backend.service.StoryService;
 import com.taskhive.taskhive_backend.service.SprintService;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +18,7 @@ import java.util.Map;
 public class DashboardController {
     
     private final StoryService storyService;
+    private final StoryAccessService storyAccessService;
     private final SprintService sprintService;
     
     @GetMapping("/dashboard")
@@ -24,7 +26,7 @@ public class DashboardController {
         try {
             log.info("Getting dashboard stats for company: {}", companyId);
             
-            var stories = storyService.getAllStoriesByCompany(companyId);
+            var stories = storyAccessService.visible(storyService.getAllStoriesByCompany(companyId));
             var sprints = sprintService.getAllSprintsByCompany(companyId);
             
             long totalStories = stories.size();

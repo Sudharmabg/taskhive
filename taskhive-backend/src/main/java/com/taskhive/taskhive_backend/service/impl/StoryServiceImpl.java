@@ -32,7 +32,9 @@ public class StoryServiceImpl implements StoryService {
     private final AuditService auditService;
     private final CurrentUserService currentUserService;
     private final com.taskhive.taskhive_backend.repository.TimeLogRepository timeLogRepository;
-    
+    private final com.taskhive.taskhive_backend.repository.TeamRepository teamRepository;
+    private final com.taskhive.taskhive_backend.service.StoryAccessService storyAccessService;
+
     @Override
     public List<Story> getAllStoriesByCompany(Long companyId) {
         return storyRepository.findByCompanyId(companyId);
@@ -80,12 +82,14 @@ public class StoryServiceImpl implements StoryService {
         long count = storyRepository.count() + 1;
         story.setStoryId(prefix + String.format("%04d", count));
         
-        story.setEpicId(resolveEpicId(story.getType(), story.getEpicId()));
-        
+        story.setEpicId(resolveEpicId(story.getType(), story.getEpicId(), null));
+
+        Optional<User> currentUser = currentUserService.get();
+        story.setTeamId(resolveTeamId(story, currentUser.orElse(null), null));
+
         // Never trust client-supplied attribution, progress or estimate
         story.setProgress(0);
         story.setEstimatedHours(null);
-        Optional<User> currentUser = currentUserService.get();
         story.setCreatedBy(currentUser.map(User::getId).orElse(null));
         story.setCreatedByName(currentUserService.displayName());
         story.setUpdatedBy(story.getCreatedBy());
@@ -101,8 +105,11 @@ public class StoryServiceImpl implements StoryService {
     public Story updateStory(Long id, Story story) {
         Story existingStory = getStoryById(id);
         Long previousEpicId = existingStory.getEpicId();
-        Long newEpicId = resolveEpicId(existingStory.getType(), story.getEpicId());
-        
+        Long newEpicId = resolveEpicId(existingStory.getType(), story.getEpicId(), previousEpicId);
+        Long previousTeamId = existingStory.getTeamId();
+        story.setEpicId(newEpicId);
+        Long newTeamId = resolveTeamId(story, currentUserService.get().orElse(null), existingStory);
+
         List<String> changes = new ArrayList<>();
         AuditService.diff(changes, "Title", existingStory.getTitle(), story.getTitle());
         AuditService.diffText(changes, "Description", existingStory.getDescription(), story.getDescription());
@@ -113,7 +120,8 @@ public class StoryServiceImpl implements StoryService {
         AuditService.diff(changes, "Deadline", existingStory.getDeadline(), story.getDeadline());
         AuditService.diffText(changes, "Acceptance criteria", existingStory.getAcceptanceCriteria(), story.getAcceptanceCriteria());
         AuditService.diff(changes, "Epic", epicLabel(previousEpicId), epicLabel(newEpicId));
-        
+        AuditService.diff(changes, "Team", teamLabel(previousTeamId), teamLabel(newTeamId));
+
         existingStory.setTitle(story.getTitle());
         existingStory.setDescription(story.getDescription());
         existingStory.setPriority(story.getPriority());
@@ -124,6 +132,7 @@ public class StoryServiceImpl implements StoryService {
         existingStory.setDeadline(story.getDeadline());
         existingStory.setAcceptanceCriteria(story.getAcceptanceCriteria());
         existingStory.setEpicId(newEpicId);
+        existingStory.setTeamId(newTeamId);
         // progress is derived by ProgressService, estimate has its own endpoint
         
         if (!changes.isEmpty()) {
@@ -176,16 +185,51 @@ public class StoryServiceImpl implements StoryService {
     /**
      * Only Tasks and Bugs can belong to an epic, and the target must be an Epic.
      */
-    private Long resolveEpicId(String type, Long epicId) {
+    private Long resolveEpicId(String type, Long epicId, Long currentEpicId) {
         if (epicId == null || type == null || type.equalsIgnoreCase("Epic")) {
             return null;
         }
         Story epic = storyRepository.findById(epicId)
+            // Keeping the current epic is fine; linking to a new one needs access to it
+            .filter(e -> epicId.equals(currentEpicId) || storyAccessService.canView(e))
             .orElseThrow(() -> new RuntimeException("Epic not found with id: " + epicId));
         if (!"Epic".equalsIgnoreCase(epic.getType())) {
             throw new RuntimeException("Story " + epicId + " is not an Epic");
         }
         return epicId;
+    }
+
+    /**
+     * Which team owns the item. Admins choose the team (a Task or Bug left without one takes
+     * its epic's team). Other users can't move items between teams: new items go to their own
+     * team, existing items keep theirs.
+     */
+    private Long resolveTeamId(Story requested, User user, Story existing) {
+        if (user != null && !CurrentUserService.isAdmin(user)) {
+            if (existing != null) return existing.getTeamId();
+            return user.getTeamId() != null ? user.getTeamId() : epicTeamId(requested.getEpicId());
+        }
+        Long teamId = requested.getTeamId();
+        if (teamId != null) {
+            Long companyId = requested.getCompany() != null ? requested.getCompany().getId()
+                : existing != null && existing.getCompany() != null ? existing.getCompany().getId() : null;
+            boolean valid = teamRepository.findById(teamId)
+                .map(t -> companyId == null || t.getCompany() == null || companyId.equals(t.getCompany().getId()))
+                .orElse(false);
+            if (!valid) throw new RuntimeException("Team not found with id: " + teamId);
+            return teamId;
+        }
+        return epicTeamId(requested.getEpicId());
+    }
+
+    private Long epicTeamId(Long epicId) {
+        if (epicId == null) return null;
+        return storyRepository.findById(epicId).map(Story::getTeamId).orElse(null);
+    }
+
+    private String teamLabel(Long teamId) {
+        if (teamId == null) return null;
+        return teamRepository.findById(teamId).map(t -> t.getName()).orElse("#" + teamId);
     }
     
     @Override

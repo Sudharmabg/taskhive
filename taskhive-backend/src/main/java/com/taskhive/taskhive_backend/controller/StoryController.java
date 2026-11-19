@@ -1,6 +1,7 @@
 package com.taskhive.taskhive_backend.controller;
 
 import com.taskhive.taskhive_backend.model.Story;
+import com.taskhive.taskhive_backend.service.StoryAccessService;
 import com.taskhive.taskhive_backend.service.StoryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +19,7 @@ import java.util.Map;
 public class StoryController {
     
     private final StoryService storyService;
+    private final StoryAccessService storyAccessService;
     
     @GetMapping
     public ResponseEntity<?> getAllStories(@RequestParam Long companyId, 
@@ -30,6 +32,8 @@ public class StoryController {
             } else {
                 stories = storyService.getAllStoriesByCompany(companyId);
             }
+            // Non-admins only see their team's work
+            stories = storyAccessService.visible(stories);
             log.info("[EXIT] GET /api/stories - Success: 200, Found {} stories", stories.size());
             return ResponseEntity.ok(stories);
         } catch (Exception e) {
@@ -71,7 +75,7 @@ public class StoryController {
     @GetMapping("/{id}/children")
     public ResponseEntity<?> getEpicChildren(@PathVariable Long id) {
         try {
-            return ResponseEntity.ok(storyService.getStoriesByEpicId(id));
+            return ResponseEntity.ok(storyAccessService.visible(storyService.getStoriesByEpicId(id)));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of(
                 "success", false,

@@ -15,4 +15,5 @@ public interface StoryRepository extends JpaRepository<Story, Long> {
     Optional<Story> findByStoryId(String storyId);
     List<Story> findByCompanyIdAndSprintIdIsNull(Long companyId);
     List<Story> findByEpicId(Long epicId);
+    List<Story> findByTeamId(Long teamId);
 }

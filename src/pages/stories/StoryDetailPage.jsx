@@ -1,211 +1,107 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import Button from '../../components/common/Button';
-import { parseStoryId } from '../../utils/storyUtils';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeftIcon, PencilIcon } from '@heroicons/react/outline';
+import Button from '../../components/common/Button';
+import AddStoryModal from '../../components/modals/AddStoryModal';
+import { TaskDetailsBody } from '../../components/modals/TaskDetailsModal';
+import apiService from '../../services/api';
+
+const LIST_ROUTES = { epic: { path: '/app/epics', label: 'Epics' }, task: { path: '/app/tasks', label: 'Tasks' }, bug: { path: '/app/bugs', label: 'Bugs' } };
 
 /**
- * Individual Story Detail Page
- * Displays full story information with direct URL access
+ * Page for a single Epic, Task or Bug, reachable by link (e.g. from an epic's linked items).
+ * The URL holds the readable key (ABC-T0012) or the numeric id.
  */
 const StoryDetailPage = () => {
   const { storyId } = useParams();
   const navigate = useNavigate();
   const [story, setStory] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [editing, setEditing] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
-  useEffect(() => {
-    // TODO: Replace with actual API call
-    const mockStory = {
-      id: storyId,
-      title: `Sample Story ${storyId}`,
-      description: 'This is a detailed description of the story with all relevant information.',
-      assignedTo: 'John Doe',
-      priority: 'High',
-      deadline: '2024-01-15',
-      status: 'In Progress',
-      type: parseStoryId(storyId)?.type || 'Task',
-      createdDate: '2024-01-08',
-      progress: 65,
-      storyPoints: 5,
-      acceptanceCriteria: 'Story should be completed according to specifications.'
-    };
-    
-    setStory(mockStory);
-    setLoading(false);
+  const load = useCallback(async (showSpinner = false) => {
+    if (showSpinner) setLoading(true);
+    setError('');
+    try {
+      const key = decodeURIComponent(storyId);
+      const data = /^\d+$/.test(key) ? await apiService.getStory(key) : await apiService.getStoryByKey(key);
+      setStory(data);
+    } catch (err) {
+      // The backend answers "not found" for other teams' work too
+      setError(err.status === 404 || /not found/i.test(err.message)
+        ? "This item doesn't exist, or it belongs to a team you're not part of."
+        : err.message);
+      setStory(null);
+    } finally {
+      setLoading(false);
+    }
   }, [storyId]);
 
-  const handleEdit = () => {
-    const storyInfo = parseStoryId(storyId);
-    if (storyInfo) {
-      const typeRoutes = {
-        Epic: 'epics',
-        Task: 'tasks',
-        Bug: 'bugs'
-      };
-      navigate(`/app/${typeRoutes[storyInfo.type]}`);
+  useEffect(() => { load(true); }, [load]);
+
+  const handleSave = async (data) => {
+    setSaveError('');
+    try {
+      await apiService.updateStory(story.id, { ...data, type: story.type });
+      setEditing(false);
+      await load();
+    } catch (err) {
+      setSaveError(err.message);
     }
   };
 
-  const handleBack = () => {
-    navigate(-1);
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-lg text-gray-300">Loading story...</div>
-      </div>
-    );
-  }
-
-  if (!story) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-lg text-gray-300">Story not found</div>
-      </div>
-    );
-  }
-
-  const getPriorityColor = (priority) => {
-    const colors = {
-      'Critical': 'text-red-300 bg-red-900',
-      'High': 'text-orange-300 bg-orange-900',
-      'Medium': 'text-yellow-300 bg-yellow-900',
-      'Low': 'text-green-300 bg-green-900'
-    };
-    return colors[priority] || 'text-gray-300 bg-gray-700';
-  };
-
-  const getStatusColor = (status) => {
-    const colors = {
-      'Completed': 'text-green-300 bg-green-900',
-      'In Progress': 'text-blue-300 bg-blue-900',
-      'Pending': 'text-yellow-300 bg-yellow-900',
-      'Overdue': 'text-red-300 bg-red-900'
-    };
-    return colors[status] || 'text-gray-300 bg-gray-700';
-  };
+  const list = LIST_ROUTES[(story?.type || '').toLowerCase()];
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <Button
-            variant="outline"
-            onClick={handleBack}
-            className="flex items-center"
-          >
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <Button variant="outline" onClick={() => navigate(-1)} className="flex items-center">
             <ArrowLeftIcon className="h-4 w-4 mr-2" />
             Back
           </Button>
-          <div>
-            <h1 className="text-2xl font-bold text-white">{story.title}</h1>
-            <p className="text-gray-400">{story.type} ID: {story.id}</p>
-          </div>
-        </div>
-        <Button
-          variant="primary"
-          onClick={handleEdit}
-          className="flex items-center"
-        >
-          <PencilIcon className="h-4 w-4 mr-2" />
-          Edit {story.type}
-        </Button>
-      </div>
-
-      {/* Story Details Section */}
-      <div className="bg-gray-800 rounded-lg shadow-sm border border-gray-700 p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-semibold text-white">Story Details</h2>
-          <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${getPriorityColor(story.priority)}`}>
-            {story.priority} Priority
-          </span>
-        </div>
-        
-        {/* Details Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div>
-            <label className="text-sm font-medium text-gray-400">Type</label>
-            <div className="mt-1">
-              <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-900 text-blue-300">
-                {story.type}
-              </span>
-            </div>
-          </div>
-
-          <div>
-            <label className="text-sm font-medium text-gray-400">Status</label>
-            <div className="mt-1">
-              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(story.status)}`}>
-                {story.status}
-              </span>
-            </div>
-          </div>
-
-          <div>
-            <label className="text-sm font-medium text-gray-400">Priority</label>
-            <div className="mt-1">
-              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getPriorityColor(story.priority)}`}>
-                {story.priority}
-              </span>
-            </div>
-          </div>
-
-          <div>
-            <label className="text-sm font-medium text-gray-400">Progress</label>
-            <div className="mt-1">
-              <div className="w-full bg-gray-700 rounded-full h-2">
-                <div 
-                  className="h-2 rounded-full" 
-                  style={{ width: `${story.progress}%`, backgroundColor: '#ffc44d' }}
-                ></div>
-              </div>
-              <span className="text-xs text-gray-400 mt-1">{story.progress}% Complete</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Additional Details */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div>
-            <label className="text-sm font-medium text-gray-400">Assigned To</label>
-            <p className="mt-1 text-sm text-white">{story.assignedTo}</p>
-          </div>
-
-          <div>
-            <label className="text-sm font-medium text-gray-400">Deadline</label>
-            <p className="mt-1 text-sm text-white">{story.deadline}</p>
-          </div>
-
-          <div>
-            <label className="text-sm font-medium text-gray-400">Created Date</label>
-            <p className="mt-1 text-sm text-white">{story.createdDate}</p>
-          </div>
-
-          {story.storyPoints && (
-            <div>
-              <label className="text-sm font-medium text-gray-400">Story Points</label>
-              <p className="mt-1 text-sm text-white">{story.storyPoints}</p>
-            </div>
+          {list && (
+            <Link to={list.path} className="text-sm text-gray-400 hover:text-white hover:underline">
+              All {list.label}
+            </Link>
           )}
         </div>
-
-        {/* Description */}
-        <div className="mb-6">
-          <h3 className="text-md font-semibold text-white mb-3">Description</h3>
-          <p className="text-gray-300">{story.description}</p>
-        </div>
-
-        {/* Acceptance Criteria */}
-        {story.acceptanceCriteria && (
-          <div>
-            <h3 className="text-md font-semibold text-white mb-3">Acceptance Criteria</h3>
-            <p className="text-gray-300">{story.acceptanceCriteria}</p>
-          </div>
+        {story && (
+          <Button variant="primary" onClick={() => setEditing(true)} className="flex items-center">
+            <PencilIcon className="h-4 w-4 mr-2" />
+            Edit {story.type}
+          </Button>
         )}
       </div>
+
+      {saveError && <p className="text-sm text-red-400" role="alert">Couldn't save: {saveError}</p>}
+
+      {loading ? (
+        <div className="flex items-center justify-center h-64 text-lg text-gray-300">Loading...</div>
+      ) : error ? (
+        <div className="bg-gray-800 border border-gray-700 rounded-lg p-8 text-center">
+          <p className="text-gray-300">{error}</p>
+          <Link to="/app/dashboard" className="inline-block mt-4 text-sm hover:underline" style={{ color: '#ffc44d' }}>
+            Go to the dashboard
+          </Link>
+        </div>
+      ) : (
+        <div className="bg-gray-800 rounded-lg shadow-sm border border-gray-700 p-6">
+          <TaskDetailsBody task={story} onDataChange={() => load()} />
+        </div>
+      )}
+
+      {editing && story && (
+        <AddStoryModal
+          isOpen
+          onClose={() => setEditing(false)}
+          onSubmit={handleSave}
+          story={story}
+          defaultType={story.type}
+        />
+      )}
     </div>
   );
 };

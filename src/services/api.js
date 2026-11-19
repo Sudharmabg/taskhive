@@ -120,6 +120,19 @@ class ApiService {
     });
   }
 
+  // Members page: whole company for admins, own team for everyone else
+  getMemberDirectory() {
+    return this.request('/users/directory');
+  }
+
+  // Admin only: name, email, designation, jobRole, teamId
+  updateUser(userId, changes) {
+    return this.request(`/users/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify(changes),
+    });
+  }
+
   // Story endpoints
   getStories() {
     const companyId = this.getCompanyId();
@@ -259,6 +272,11 @@ class ApiService {
   }
 
   // Tasks and Bugs linked to an epic
+  // Look up by the readable key, e.g. ABC-T0012
+  getStoryByKey(storyKey) {
+    return this.request(`/stories/story/${encodeURIComponent(storyKey)}`);
+  }
+
   getEpicChildren(epicId) {
     return this.request(`/stories/${epicId}/children`);
   }
@@ -305,8 +323,8 @@ class ApiService {
     return this.uploadFiles(`/subtasks/${subtaskId}/attachments`, files);
   }
 
-  async downloadAttachment(attachment) {
-    const response = await fetch(`${this.baseURL}/attachments/${attachment.id}/download`, {
+  async downloadAttachment(attachment, endpoint = `/attachments/${attachment.id}/download`) {
+    const response = await fetch(`${this.baseURL}${endpoint}`, {
       headers: this.authHeaders(),
     });
     if (!response.ok) {
@@ -443,6 +461,47 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify({ decision, note }),
     });
+  }
+
+  // Documents (company library with tags)
+  getDocuments() {
+    return this.request('/documents');
+  }
+
+  getDocumentTags() {
+    return this.request('/documents/tags');
+  }
+
+  async uploadDocument(file, { title, description, tags = [] } = {}) {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (title) formData.append('title', title);
+    if (description) formData.append('description', description);
+    tags.forEach(tag => formData.append('tags', tag));
+    const response = await fetch(`${this.baseURL}/documents`, {
+      method: 'POST',
+      headers: this.authHeaders(),
+      body: formData,
+    });
+    if (!response.ok) {
+      throw await this.errorFrom(response);
+    }
+    return response.json();
+  }
+
+  updateDocument(documentId, { title, description, tags }) {
+    return this.request(`/documents/${documentId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ title, description, tags }),
+    });
+  }
+
+  downloadDocument(doc) {
+    return this.downloadAttachment({ id: doc.id, fileName: doc.fileName }, `/documents/${doc.id}/download`);
+  }
+
+  deleteDocument(documentId) {
+    return this.request(`/documents/${documentId}`, { method: 'DELETE' });
   }
 
   // Analytics endpoints

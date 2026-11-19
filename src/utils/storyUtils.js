@@ -62,6 +62,17 @@ export const getStoryUrl = (storyId, type) => {
 };
 
 /**
+ * Page link for a story object. Uses the readable key (ABC-T0012) when present,
+ * else the numeric id; type casing ("TASK", "task") doesn't matter.
+ */
+export const getStoryPath = (story) => {
+  if (!story) return '/app/dashboard';
+  const routes = { epic: 'epics', task: 'tasks', bug: 'bugs' };
+  const route = routes[(story.type || '').toLowerCase()] || 'tasks';
+  return `/app/${route}/${encodeURIComponent(story.storyId || story.id)}`;
+};
+
+/**
  * True once the deadline day has fully passed (local time).
  * A date-only deadline ("2026-11-16") stays on time for that whole day.
  */
