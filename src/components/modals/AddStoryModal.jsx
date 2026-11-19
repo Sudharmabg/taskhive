@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Button from '../common/Button';
 import Input from '../common/Input';
 import Modal from '../common/Modal';
@@ -47,6 +47,27 @@ const AddStoryModal = ({ isOpen, onClose, onSubmit, story = null, defaultType = 
   const [errors, setErrors] = useState({});
   const [users, setUsers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [memberSearch, setMemberSearch] = useState('');
+
+  // Every word must appear in the name, job role, designation or email
+  const matchingUsers = useMemo(() => {
+    const words = memberSearch.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (!words.length) return users;
+    return users.filter(u => {
+      const text = `${u.name || ''} ${u.jobRole || ''} ${u.designation || ''} ${u.email || ''}`.toLowerCase();
+      return words.every(w => text.includes(w));
+    });
+  }, [users, memberSearch]);
+
+  const toggleAssignee = (name) => {
+    setFormData(prev => ({
+      ...prev,
+      assignedTo: prev.assignedTo.includes(name)
+        ? prev.assignedTo.filter(n => n !== name)
+        : [...prev.assignedTo, name]
+    }));
+    if (errors.assignedTo) setErrors(prev => ({ ...prev, assignedTo: '' }));
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -176,6 +197,7 @@ const AddStoryModal = ({ isOpen, onClose, onSubmit, story = null, defaultType = 
       });
       setPendingFiles([]);
       setPendingSubtasks([]);
+      setMemberSearch('');
     } else {
       console.log('Validation failed, form not submitted');
     }
@@ -235,34 +257,49 @@ const AddStoryModal = ({ isOpen, onClose, onSubmit, story = null, defaultType = 
             <label className="block text-sm font-medium text-gray-300 mb-1">
               Assign To <span className="text-red-400">*</span>
             </label>
-            <div className="border border-gray-600 bg-gray-700 rounded-lg p-3 max-h-32 overflow-y-auto">
+            <input
+              type="search"
+              value={memberSearch}
+              onChange={(e) => setMemberSearch(e.target.value)}
+              onKeyDown={(e) => {
+                // Enter picks the only match instead of submitting the form
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  if (matchingUsers.length === 1) {
+                    toggleAssignee(matchingUsers[0].name);
+                    setMemberSearch('');
+                  }
+                }
+              }}
+              placeholder="Search by name, role or email..."
+              aria-label="Search members to assign"
+              className="w-full mb-2 px-3 py-2 bg-gray-700 border border-gray-600 text-white placeholder-gray-400 rounded-lg focus:ring-2 focus:border-transparent text-sm"
+              style={{ '--tw-ring-color': '#ffc44d' }}
+            />
+            <div className="border border-gray-600 bg-gray-700 rounded-lg p-3 max-h-40 overflow-y-auto">
               {loadingUsers ? (
                 <div className="text-center text-gray-400 py-2">Loading users...</div>
               ) : users.length === 0 ? (
                 <div className="text-center text-gray-400 py-2">No users available</div>
+              ) : matchingUsers.length === 0 ? (
+                <div className="text-center text-gray-400 py-2">No one matches "{memberSearch.trim()}"</div>
               ) : (
-                users.map(user => (
-                <label key={user.id} className="flex items-center space-x-2 py-1">
+                matchingUsers.map(user => (
+                <label key={user.id} className="flex items-center space-x-2 py-1 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={formData.assignedTo.includes(user.name)}
-                    onChange={(e) => {
-                      const isChecked = e.target.checked;
-                      setFormData(prev => ({
-                        ...prev,
-                        assignedTo: isChecked 
-                          ? [...prev.assignedTo, user.name]
-                          : prev.assignedTo.filter(name => name !== user.name)
-                      }));
-                    }}
+                    onChange={() => toggleAssignee(user.name)}
                     className="rounded border-gray-600 bg-gray-700 text-yellow-500 focus:ring-2"
                     style={{ '--tw-ring-color': '#ffc44d' }}
                   />
-                  <div className="flex items-center justify-between flex-1">
-                    <span className="text-sm text-gray-300">{user.name}</span>
-                    <span className="text-xs px-2 py-1 rounded text-black font-medium" style={{ backgroundColor: '#ffc44d' }}>
-                      {user.jobRole}
-                    </span>
+                  <div className="flex items-center justify-between flex-1 min-w-0 gap-2">
+                    <span className="text-sm text-gray-300 truncate">{user.name}</span>
+                    {user.jobRole && (
+                      <span className="text-xs px-2 py-1 rounded text-black font-medium shrink-0" style={{ backgroundColor: '#ffc44d' }}>
+                        {user.jobRole}
+                      </span>
+                    )}
                   </div>
                 </label>
                 ))
@@ -273,21 +310,38 @@ const AddStoryModal = ({ isOpen, onClose, onSubmit, story = null, defaultType = 
             )}
             {formData.assignedTo.length > 0 && (
               <div className="mt-2">
-                <p className="text-sm font-medium text-gray-300 mb-1">Assigned to:</p>
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-sm font-medium text-gray-300">Assigned to ({formData.assignedTo.length}):</p>
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, assignedTo: [] }))}
+                    className="text-xs text-gray-400 hover:text-white"
+                  >
+                    Clear all
+                  </button>
+                </div>
                 <div className="flex flex-wrap gap-1">
-                  {formData.assignedTo.map((name, index) => {
+                  {formData.assignedTo.map((name) => {
                     const user = users.find(u => u.name === name);
                     return (
                       <span
-                        key={index}
+                        key={name}
                         className="inline-flex items-center space-x-1 px-2 py-1 rounded text-xs font-medium bg-gray-700 text-gray-300 border border-gray-600"
                       >
                         <span>{name}</span>
-                        {user && (
+                        {user?.jobRole && (
                           <span className="px-1 py-0.5 rounded text-black" style={{ backgroundColor: '#ffc44d' }}>
                             {user.jobRole}
                           </span>
                         )}
+                        <button
+                          type="button"
+                          onClick={() => toggleAssignee(name)}
+                          className="ml-1 text-gray-400 hover:text-white"
+                          aria-label={`Remove ${name}`}
+                        >
+                          ×
+                        </button>
                       </span>
                     );
                   })}
