@@ -1,13 +1,12 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  CloudUploadIcon, DocumentTextIcon, DownloadIcon, PencilIcon, TagIcon, TrashIcon, XIcon,
+  DocumentTextIcon, DownloadIcon, PencilIcon, PlusIcon, TagIcon, TrashIcon, XIcon,
 } from '@heroicons/react/outline';
 import Button from '../../components/common/Button';
-import Input from '../../components/common/Input';
-import Modal from '../../components/common/Modal';
 import apiService from '../../services/api';
 import { formatDateTime } from '../../components/common/StoryHistory';
 import { formatFileSize } from '../../components/common/AttachmentsSection';
+import DocumentEditorModal from './DocumentEditorModal';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const MAX_TAGS = 10;
@@ -98,203 +97,8 @@ const TagInput = ({ id, tags, onChange, suggestions = [] }) => {
   );
 };
 
-/** Upload one or more files; every file becomes its own document with the same tags. */
-const UploadModal = ({ tagSuggestions, onClose, onUploaded }) => {
-  const [files, setFiles] = useState([]);
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [tags, setTags] = useState([]);
-  const [error, setError] = useState('');
-  const [progress, setProgress] = useState(null); // { done, total }
-  const [dragging, setDragging] = useState(false);
-  const inputRef = useRef(null);
-
-  const pick = (list) => {
-    const chosen = Array.from(list || []);
-    const tooBig = chosen.filter(f => f.size > MAX_FILE_SIZE);
-    if (tooBig.length) {
-      setError(`${tooBig.map(f => f.name).join(', ')} ${tooBig.length > 1 ? 'are' : 'is'} over the 10 MB limit`);
-    } else {
-      setError('');
-    }
-    const ok = chosen.filter(f => f.size <= MAX_FILE_SIZE);
-    setFiles(ok);
-    if (ok.length === 1 && !title) setTitle(stripExtension(ok[0].name));
-  };
-
-  const submit = async (e) => {
-    e.preventDefault();
-    if (!files.length) { setError('Choose a file to upload'); return; }
-    const single = files.length === 1;
-    if (single && !title.trim()) { setError('Give the document a title'); return; }
-
-    setError('');
-    setProgress({ done: 0, total: files.length });
-    const uploaded = [];
-    const failed = [];
-    for (const file of files) {
-      try {
-        uploaded.push(await apiService.uploadDocument(file, {
-          title: single ? title.trim() : stripExtension(file.name),
-          description: description.trim(),
-          tags,
-        }));
-      } catch (err) {
-        failed.push(`${file.name}: ${err.message}`);
-      }
-      setProgress(p => ({ ...p, done: p.done + 1 }));
-    }
-    if (uploaded.length) onUploaded(uploaded);
-    if (failed.length) {
-      setError(`Some files were not uploaded. ${failed.join('; ')}`);
-      setFiles(files.filter(f => failed.some(msg => msg.startsWith(`${f.name}:`))));
-      setProgress(null);
-    } else {
-      onClose();
-    }
-  };
-
-  const busy = progress !== null;
-
-  return (
-    <Modal isOpen onClose={busy ? () => {} : onClose} title="Upload documents" size="lg">
-      <form onSubmit={submit} className="space-y-4" noValidate>
-        <div
-          onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={(e) => { e.preventDefault(); setDragging(false); pick(e.dataTransfer.files); }}
-          className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${dragging ? 'bg-gray-700' : 'border-gray-600'}`}
-          style={dragging ? { borderColor: '#ffc44d' } : {}}
-        >
-          <CloudUploadIcon className="h-10 w-10 mx-auto text-gray-400" />
-          <p className="mt-2 text-sm text-gray-300">
-            Drag files here or{' '}
-            <button type="button" onClick={() => inputRef.current?.click()} className="font-medium hover:underline" style={{ color: '#ffc44d' }}>
-              browse
-            </button>
-          </p>
-          <p className="text-xs text-gray-400 mt-1">Up to 10 MB per file</p>
-          <input ref={inputRef} type="file" multiple className="hidden" onChange={(e) => { pick(e.target.files); e.target.value = ''; }} />
-        </div>
-
-        {files.length > 0 && (
-          <ul className="text-sm text-gray-300 space-y-1">
-            {files.map(f => (
-              <li key={`${f.name}-${f.size}`} className="flex items-center justify-between gap-2">
-                <span className="truncate" title={f.name}>{f.name}</span>
-                <span className="flex items-center gap-2 text-gray-400 flex-shrink-0">
-                  {formatFileSize(f.size)}
-                  {!busy && (
-                    <button type="button" onClick={() => setFiles(list => list.filter(x => x !== f))} aria-label={`Remove ${f.name}`} className="hover:text-white">
-                      <XIcon className="h-4 w-4" />
-                    </button>
-                  )}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {files.length <= 1 ? (
-          <Input
-            label="Title"
-            name="title"
-            value={title}
-            maxLength={150}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Defaults to the file name"
-            required
-          />
-        ) : (
-          <p className="text-xs text-gray-400">Each file is saved as its own document, titled after its file name.</p>
-        )}
-
-        <div>
-          <label htmlFor="doc-description" className="block text-sm font-medium text-gray-300 mb-1">Description (optional)</label>
-          <textarea
-            id="doc-description"
-            rows={3}
-            maxLength={1000}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className={fieldClass}
-            style={ring}
-            placeholder="What is this document for?"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="doc-tags" className="block text-sm font-medium text-gray-300 mb-1">Tags</label>
-          <TagInput id="doc-tags" tags={tags} onChange={setTags} suggestions={tagSuggestions} />
-        </div>
-
-        {error && <p className="text-sm text-red-400" role="alert">{error}</p>}
-        <div className="flex justify-end space-x-3">
-          <Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button>
-          <Button type="submit" variant="primary" disabled={busy || !files.length}>
-            {busy ? `Uploading ${Math.min(progress.done + 1, progress.total)} of ${progress.total}...`
-              : files.length > 1 ? `Upload ${files.length} files` : 'Upload'}
-          </Button>
-        </div>
-      </form>
-    </Modal>
-  );
-};
-
-/** Edit title, description and tags of an existing document. */
-const EditModal = ({ doc, tagSuggestions, onClose, onSaved }) => {
-  const [title, setTitle] = useState(doc.title);
-  const [description, setDescription] = useState(doc.description || '');
-  const [tags, setTags] = useState(doc.tags || []);
-  const [error, setError] = useState('');
-  const [saving, setSaving] = useState(false);
-
-  const submit = async (e) => {
-    e.preventDefault();
-    if (!title.trim()) { setError('Give the document a title'); return; }
-    setSaving(true);
-    setError('');
-    try {
-      onSaved(await apiService.updateDocument(doc.id, { title: title.trim(), description: description.trim(), tags }));
-    } catch (err) {
-      setError(err.message);
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Modal isOpen onClose={onClose} title="Edit document" size="lg">
-      <form onSubmit={submit} className="space-y-4" noValidate>
-        <p className="text-xs text-gray-400 truncate" title={doc.fileName}>File: {doc.fileName}</p>
-        <Input label="Title" name="title" value={title} maxLength={150} onChange={(e) => setTitle(e.target.value)} required autoFocus />
-        <div>
-          <label htmlFor="doc-edit-description" className="block text-sm font-medium text-gray-300 mb-1">Description</label>
-          <textarea
-            id="doc-edit-description"
-            rows={3}
-            maxLength={1000}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className={fieldClass}
-            style={ring}
-          />
-        </div>
-        <div>
-          <label htmlFor="doc-edit-tags" className="block text-sm font-medium text-gray-300 mb-1">Tags</label>
-          <TagInput id="doc-edit-tags" tags={tags} onChange={setTags} suggestions={tagSuggestions} />
-        </div>
-        {error && <p className="text-sm text-red-400" role="alert">{error}</p>}
-        <div className="flex justify-end space-x-3">
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button type="submit" variant="primary" disabled={saving}>{saving ? 'Saving...' : 'Save changes'}</Button>
-        </div>
-      </form>
-    </Modal>
-  );
-};
-
 /**
- * Company document library: upload files, tag them, and find them again by tag or search.
+ * Company document library: create rich-text documents, tag them, and find them again by tag or search.
  */
 const DocumentsPage = () => {
   const [docs, setDocs] = useState([]);
@@ -306,8 +110,16 @@ const DocumentsPage = () => {
   const [selectedTags, setSelectedTags] = useState([]);
   const [mineOnly, setMineOnly] = useState(false);
   const [sort, setSort] = useState('new');
-  const [uploading, setUploading] = useState(false);
-  const [editing, setEditing] = useState(null);
+  const [activeDocForEditor, setActiveDocForEditor] = useState(null);
+
+  const openDocEditor = async (doc) => {
+    try {
+      const full = await apiService.getDocument(doc.id);
+      setActiveDocForEditor(full);
+    } catch {
+      setActiveDocForEditor(doc);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -377,12 +189,18 @@ const DocumentsPage = () => {
       <div className="flex flex-wrap justify-between items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">Documents</h1>
-          <p className="text-gray-300">Share files with your company and tag them so they are easy to find</p>
+          <p className="text-gray-300">Create, edit, collaborate, and share documents with your team</p>
         </div>
-        <Button variant="primary" onClick={() => setUploading(true)} className="flex items-center">
-          <CloudUploadIcon className="h-4 w-4 mr-2" />
-          Upload document
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button
+            variant="primary"
+            onClick={() => setActiveDocForEditor({ title: '', content: '<p>Start typing your document here...</p>', tags: [] })}
+            className="flex items-center"
+          >
+            <PlusIcon className="h-4 w-4 mr-2" />
+            New document
+          </Button>
+        </div>
       </div>
 
       <div className="bg-gray-800 rounded-lg border border-gray-700">
@@ -445,7 +263,7 @@ const DocumentsPage = () => {
         <div className="text-center py-12 bg-gray-800 border border-gray-700 rounded-lg">
           <DocumentTextIcon className="h-10 w-10 mx-auto mb-3" style={{ color: '#ffc44d' }} />
           <p className="text-gray-300">
-            {filtersActive ? 'No documents match these filters.' : 'No documents yet. Upload the first one.'}
+            {filtersActive ? 'No documents match these filters.' : 'No documents yet. Create the first one.'}
           </p>
         </div>
       ) : (
@@ -463,35 +281,51 @@ const DocumentsPage = () => {
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <h3 className="text-base font-semibold text-white break-words">{doc.title}</h3>
-                      <p className="text-xs text-gray-400 truncate" title={doc.fileName}>
-                        {doc.fileName} · {formatFileSize(doc.fileSize)}
-                      </p>
+                      <h3
+                        onClick={() => openDocEditor(doc)}
+                        className="text-base font-semibold text-white break-words cursor-pointer hover:underline hover:text-amber-300 transition-colors"
+                        title="Click to open and edit document"
+                      >
+                        {doc.title}
+                      </h3>
+                      {doc.fileName ? (
+                        <p className="text-xs text-gray-400 truncate" title={doc.fileName}>
+                          {doc.fileName} {doc.fileSize ? `· ${formatFileSize(doc.fileSize)}` : ''}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-gray-400">
+                          Text Document
+                        </p>
+                      )}
                     </div>
-                    <div className="flex items-center gap-3 text-sm flex-shrink-0">
-                      <button
-                        type="button"
+                    <div className="flex items-center gap-2 text-sm flex-shrink-0">
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => openDocEditor(doc)}
+                        className="text-xs font-semibold"
+                      >
+                        <PencilIcon className="h-3.5 w-3.5 mr-1.5" /> Open & Edit
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
                         onClick={() => download(doc)}
                         disabled={busyId === doc.id}
-                        className="inline-flex items-center font-medium hover:underline disabled:opacity-50"
-                        style={{ color: '#ffc44d' }}
+                        className="text-xs"
                       >
-                        <DownloadIcon className="h-4 w-4 mr-1" /> Download
-                      </button>
+                        <DownloadIcon className="h-3.5 w-3.5 mr-1.5" /> Download
+                      </Button>
                       {doc.canManage && (
-                        <>
-                          <button type="button" onClick={() => setEditing(doc)} className="inline-flex items-center text-gray-300 hover:text-white">
-                            <PencilIcon className="h-4 w-4 mr-1" /> Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => remove(doc)}
-                            disabled={busyId === doc.id}
-                            className="inline-flex items-center text-gray-300 hover:text-red-400 disabled:opacity-50"
-                          >
-                            <TrashIcon className="h-4 w-4 mr-1" /> Delete
-                          </button>
-                        </>
+                        <button
+                          type="button"
+                          onClick={() => remove(doc)}
+                          disabled={busyId === doc.id}
+                          className="p-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-gray-700 transition-colors disabled:opacity-50"
+                          title="Delete document"
+                        >
+                          <TrashIcon className="h-4 w-4" />
+                        </button>
                       )}
                     </div>
                   </div>
@@ -519,10 +353,22 @@ const DocumentsPage = () => {
                     </div>
                   )}
 
-                  <p className="text-xs text-gray-400 mt-2">
-                    Uploaded by {doc.mine ? 'you' : doc.uploadedByName || 'Unknown'} · {formatDateTime(doc.createdAt)}
-                    {doc.updatedByName && ` · Edited by ${doc.updatedByName}`}
-                  </p>
+                  {(() => {
+                    const currentUser = apiService.getCurrentUser() || {};
+                    const currentUserName = currentUser.name || '';
+                    const isCreator = doc.mine || (currentUserName && doc.uploadedByName === currentUserName);
+                    const isEditor = currentUserName && doc.updatedByName === currentUserName;
+
+                    const creatorLabel = isCreator ? 'you' : (doc.uploadedByName || 'Unknown');
+                    const editorLabel = isEditor ? 'you' : doc.updatedByName;
+
+                    return (
+                      <p className="text-xs text-gray-400 mt-2">
+                        Created by {creatorLabel} · {formatDateTime(doc.createdAt)}
+                        {doc.updatedByName && ` · Edited by ${editorLabel}${doc.updatedAt ? ` · ${formatDateTime(doc.updatedAt)}` : ''}`}
+                      </p>
+                    );
+                  })()}
                 </div>
               </li>
             ))}
@@ -530,21 +376,17 @@ const DocumentsPage = () => {
         </>
       )}
 
-      {uploading && (
-        <UploadModal
+      {activeDocForEditor && (
+        <DocumentEditorModal
+          doc={activeDocForEditor}
           tagSuggestions={tagSuggestions}
-          onClose={() => setUploading(false)}
-          onUploaded={(added) => setDocs(list => [...added, ...list])}
-        />
-      )}
-      {editing && (
-        <EditModal
-          doc={editing}
-          tagSuggestions={tagSuggestions}
-          onClose={() => setEditing(null)}
+          onClose={() => setActiveDocForEditor(null)}
           onSaved={(saved) => {
-            setDocs(list => list.map(d => (d.id === saved.id ? saved : d)));
-            setEditing(null);
+            setDocs(list => {
+              const exists = list.some(d => d.id === saved.id);
+              return exists ? list.map(d => (d.id === saved.id ? saved : d)) : [saved, ...list];
+            });
+            setActiveDocForEditor(saved);
           }}
         />
       )}

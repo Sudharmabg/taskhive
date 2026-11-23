@@ -36,6 +36,9 @@ public class Document {
     @Column(length = 1000)
     private String description;
 
+    @Column(name = "content", columnDefinition = "TEXT")
+    private String content;
+
     @Column(name = "file_name", nullable = false, length = 255)
     private String fileName;
 

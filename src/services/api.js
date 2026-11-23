@@ -463,13 +463,24 @@ class ApiService {
     });
   }
 
-  // Documents (company library with tags)
+  // Documents (company library with tags & Google Doc-style editor/comments)
   getDocuments() {
     return this.request('/documents');
   }
 
+  getDocument(documentId) {
+    return this.request(`/documents/${documentId}`);
+  }
+
   getDocumentTags() {
     return this.request('/documents/tags');
+  }
+
+  createDocument({ title, description, tags = [], content = '' } = {}) {
+    return this.request('/documents/create', {
+      method: 'POST',
+      body: JSON.stringify({ title, description, tags, content }),
+    });
   }
 
   async uploadDocument(file, { title, description, tags = [] } = {}) {
@@ -489,19 +500,72 @@ class ApiService {
     return response.json();
   }
 
-  updateDocument(documentId, { title, description, tags }) {
+  updateDocument(documentId, { title, description, tags, content }) {
     return this.request(`/documents/${documentId}`, {
       method: 'PUT',
-      body: JSON.stringify({ title, description, tags }),
+      body: JSON.stringify({ title, description, tags, content }),
     });
   }
 
-  downloadDocument(doc) {
-    return this.downloadAttachment({ id: doc.id, fileName: doc.fileName }, `/documents/${doc.id}/download`);
+  async downloadDocument(doc) {
+    const response = await fetch(`${this.baseURL}/documents/${doc.id}/download`, {
+      headers: this.authHeaders(),
+    });
+    if (!response.ok) {
+      throw await this.errorFrom(response);
+    }
+
+    // Determine clean filename ending in .docx
+    let filename = '';
+    const disposition = response.headers.get('content-disposition');
+    if (disposition && disposition.includes('filename=')) {
+      const match = disposition.match(/filename\*?=(?:UTF-8'')?["']?([^"';]+)["']?/i);
+      if (match && match[1]) {
+        filename = decodeURIComponent(match[1]);
+      }
+    }
+    if (!filename) {
+      const baseName = (doc.title || doc.fileName || 'document').replace(/\.[^/.]+$/, '');
+      filename = `${baseName.trim().replace(/[^a-zA-Z0-9 ._-]+/g, '_')}.docx`;
+    }
+
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   deleteDocument(documentId) {
     return this.request(`/documents/${documentId}`, { method: 'DELETE' });
+  }
+
+  getDocumentComments(documentId) {
+    return this.request(`/documents/${documentId}/comments`);
+  }
+
+  addDocumentComment(documentId, { content, selectedText, parentId }) {
+    return this.request(`/documents/${documentId}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ content, selectedText, parentId }),
+    });
+  }
+
+  resolveDocumentComment(documentId, commentId, resolved) {
+    return this.request(`/documents/${documentId}/comments/${commentId}/resolve`, {
+      method: 'PUT',
+      body: JSON.stringify({ resolved }),
+    });
+  }
+
+  deleteDocumentComment(documentId, commentId) {
+    return this.request(`/documents/${documentId}/comments/${commentId}`, {
+      method: 'DELETE',
+    });
   }
 
   // Analytics endpoints
