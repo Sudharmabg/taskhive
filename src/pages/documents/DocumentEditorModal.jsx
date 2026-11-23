@@ -785,11 +785,9 @@ const DocumentEditorModal = ({ doc, tagSuggestions = [], onClose, onSaved }) => 
         {/* ── Modal Footer ── */}
         <footer className="px-5 py-3 bg-gray-800 border-t border-gray-700 flex flex-col sm:flex-row items-center justify-between gap-3 flex-shrink-0">
           <div className="flex items-center gap-3 text-xs text-gray-400">
-            {doc?.fileName && (
-              <span>
-                File: <strong className="text-gray-300">{doc.fileName}</strong> {doc.fileSize ? `(${formatFileSize(doc.fileSize)})` : ''}
-              </span>
-            )}
+            <span>
+              File: <strong className="text-gray-300">{title ? `${title.trim()}.docx` : (doc?.fileName || 'Document.docx')}</strong> {doc?.fileSize ? `(${formatFileSize(doc.fileSize)})` : ''}
+            </span>
             {(() => {
               if (!doc?.updatedByName) return null;
               const currentUser = apiService.getCurrentUser() || {};

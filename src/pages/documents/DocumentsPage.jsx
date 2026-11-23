@@ -290,11 +290,11 @@ const DocumentsPage = () => {
                       </h3>
                       {doc.fileName ? (
                         <p className="text-xs text-gray-400 truncate" title={doc.fileName}>
-                          {doc.fileName} {doc.fileSize ? `· ${formatFileSize(doc.fileSize)}` : ''}
+                          {doc.title ? `${doc.title}.docx` : doc.fileName} {doc.fileSize ? `· ${formatFileSize(doc.fileSize)}` : ''}
                         </p>
                       ) : (
                         <p className="text-xs text-gray-400">
-                          Text Document
+                          {doc.title ? `${doc.title}.docx` : 'Document.docx'}
                         </p>
                       )}
                     </div>

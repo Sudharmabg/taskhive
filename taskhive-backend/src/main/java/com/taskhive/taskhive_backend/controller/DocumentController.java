@@ -122,8 +122,8 @@ public class DocumentController {
             return error("A document with the title \"" + doc.getTitle().trim() + "\" already exists");
         }
 
-        String safeTitle = doc.getTitle().toLowerCase().replaceAll("[^a-z0-9_-]+", "-");
-        if (safeTitle.isBlank()) safeTitle = "document";
+        String safeTitle = doc.getTitle().replaceAll("[^a-zA-Z0-9 ._-]+", "_").trim();
+        if (safeTitle.isBlank()) safeTitle = "Document";
         String fileName = safeTitle + ".docx";
 
         byte[] data;
@@ -220,6 +220,12 @@ public class DocumentController {
             return error("A document with the title \"" + doc.getTitle().trim() + "\" already exists");
         }
 
+        // Always update fileName to exactly match the current title
+        String safeTitle = doc.getTitle().replaceAll("[^a-zA-Z0-9 ._-]+", "_").trim();
+        if (safeTitle.isBlank()) safeTitle = "Document";
+        doc.setFileName(safeTitle + ".docx");
+        doc.setContentType("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+
         if (body.containsKey("content")) {
             String content = str(body.get("content"));
             if (content == null) content = "";
@@ -230,16 +236,20 @@ public class DocumentController {
             try {
                 byte[] docxData = com.taskhive.taskhive_backend.util.DocxGenerator.generateDocx(doc.getTitle(), content);
                 doc.setFileSize((long) docxData.length);
-                doc.setContentType("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-                if (doc.getFileName() != null && !doc.getFileName().toLowerCase().endsWith(".docx")) {
-                    doc.setFileName(doc.getFileName().replaceFirst("\\.[^.]+$", "") + ".docx");
-                }
                 fileRepository.save(new DocumentFile(doc.getId(), docxData));
             } catch (Exception e) {
                 byte[] data = content.getBytes(StandardCharsets.UTF_8);
                 doc.setFileSize((long) data.length);
                 fileRepository.save(new DocumentFile(doc.getId(), data));
             }
+        } else {
+            // Title changed without content payload: update docx binary with new title
+            try {
+                String existingContent = doc.getContent() != null ? doc.getContent() : "";
+                byte[] docxData = com.taskhive.taskhive_backend.util.DocxGenerator.generateDocx(doc.getTitle(), existingContent);
+                doc.setFileSize((long) docxData.length);
+                fileRepository.save(new DocumentFile(doc.getId(), docxData));
+            } catch (Exception ignored) {}
         }
 
         doc.setUpdatedByName(user.getName());
