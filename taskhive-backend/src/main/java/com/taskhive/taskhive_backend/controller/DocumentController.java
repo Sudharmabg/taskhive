@@ -117,6 +117,11 @@ public class DocumentController {
         String problem = applyDetails(doc, title, description, tags);
         if (problem != null) return error(problem);
 
+        Long compId = companyId(user);
+        if (documentRepository.existsByCompanyIdAndTitleIgnoreCase(compId, doc.getTitle().trim())) {
+            return error("A document with the title \"" + doc.getTitle().trim() + "\" already exists");
+        }
+
         String safeTitle = doc.getTitle().toLowerCase().replaceAll("[^a-z0-9_-]+", "-");
         if (safeTitle.isBlank()) safeTitle = "document";
         String fileName = safeTitle + ".docx";
@@ -209,6 +214,11 @@ public class DocumentController {
         }
         String problem = applyDetails(doc, str(body.get("title")), str(body.get("description")), tags);
         if (problem != null) return error(problem);
+
+        Long compId = companyId(user);
+        if (documentRepository.existsByCompanyIdAndTitleIgnoreCaseAndIdNot(compId, doc.getTitle().trim(), doc.getId())) {
+            return error("A document with the title \"" + doc.getTitle().trim() + "\" already exists");
+        }
 
         if (body.containsKey("content")) {
             String content = str(body.get("content"));
