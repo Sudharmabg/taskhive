@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  DocumentTextIcon, DownloadIcon, PencilIcon, PlusIcon, TagIcon, TrashIcon, XIcon,
+  ChatAlt2Icon, DocumentTextIcon, DownloadIcon, PencilIcon, PlusIcon, TagIcon, TrashIcon, XIcon,
 } from '@heroicons/react/outline';
 import Button from '../../components/common/Button';
 import apiService from '../../services/api';
@@ -299,6 +299,15 @@ const DocumentsPage = () => {
                       )}
                     </div>
                     <div className="flex items-center gap-2 text-sm flex-shrink-0">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => openDocEditor(doc)}
+                        className="text-xs"
+                        title="View or add comments to this document"
+                      >
+                        <ChatAlt2Icon className="h-3.5 w-3.5 mr-1.5" /> Comments {doc.commentCount > 0 ? `(${doc.commentCount})` : ''}
+                      </Button>
                       <Button
                         variant="primary"
                         size="sm"

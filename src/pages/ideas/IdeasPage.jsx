@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ChevronUpIcon, LightBulbIcon, PencilIcon, PlusIcon, TrashIcon } from '@heroicons/react/outline';
+import { ChatAlt2Icon, ChevronUpIcon, LightBulbIcon, PencilIcon, PlusIcon, TrashIcon } from '@heroicons/react/outline';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
 import Modal from '../../components/common/Modal';
+import CommentsSection from '../../components/common/CommentsSection';
 import apiService from '../../services/api';
 import { formatDateTime } from '../../components/common/StoryHistory';
 
@@ -159,6 +160,8 @@ const IdeaStatusModal = ({ idea, onClose, onSaved }) => {
 
 const IdeaCard = ({ idea, isAdmin, busy, onVote, onEdit, onDelete, onStatus }) => {
   const [expanded, setExpanded] = useState(false);
+  const [showComments, setShowComments] = useState(false);
+  const [commentCount, setCommentCount] = useState(idea.commentCount || 0);
   const status = statusInfo(idea.status);
   const long = (idea.description || '').length > 280;
 
@@ -211,23 +214,45 @@ const IdeaCard = ({ idea, isAdmin, busy, onVote, onEdit, onDelete, onStatus }) =
           </div>
         )}
 
-        {(idea.canEdit || idea.canDelete || isAdmin) && (
-          <div className="flex flex-wrap items-center gap-3 mt-3 text-sm">
-            {isAdmin && (
-              <button type="button" onClick={() => onStatus(idea)} className="font-medium hover:underline" style={{ color: '#ffc44d' }}>
-                Update status
-              </button>
-            )}
-            {idea.canEdit && (
-              <button type="button" onClick={() => onEdit(idea)} className="inline-flex items-center text-gray-300 hover:text-white">
-                <PencilIcon className="h-4 w-4 mr-1" /> Edit
-              </button>
-            )}
-            {idea.canDelete && (
-              <button type="button" onClick={() => onDelete(idea)} disabled={busy} className="inline-flex items-center text-gray-300 hover:text-red-400 disabled:opacity-50">
-                <TrashIcon className="h-4 w-4 mr-1" /> Delete
-              </button>
-            )}
+        {/* Actions row: Comments toggle + Status / Edit / Delete */}
+        <div className="flex flex-wrap items-center gap-3 mt-3 text-sm">
+          <button
+            type="button"
+            onClick={() => setShowComments(s => !s)}
+            className={`inline-flex items-center text-sm font-medium transition-colors ${
+              showComments ? 'text-yellow-400' : 'text-gray-300 hover:text-white'
+            }`}
+            title="Comments and discussions on this idea"
+          >
+            <ChatAlt2Icon className="h-4 w-4 mr-1.5" />
+            Comments {commentCount > 0 ? `(${commentCount})` : ''}
+          </button>
+
+          {isAdmin && (
+            <button type="button" onClick={() => onStatus(idea)} className="font-medium hover:underline" style={{ color: '#ffc44d' }}>
+              Update status
+            </button>
+          )}
+          {idea.canEdit && (
+            <button type="button" onClick={() => onEdit(idea)} className="inline-flex items-center text-gray-300 hover:text-white">
+              <PencilIcon className="h-4 w-4 mr-1" /> Edit
+            </button>
+          )}
+          {idea.canDelete && (
+            <button type="button" onClick={() => onDelete(idea)} disabled={busy} className="inline-flex items-center text-gray-300 hover:text-red-400 disabled:opacity-50">
+              <TrashIcon className="h-4 w-4 mr-1" /> Delete
+            </button>
+          )}
+        </div>
+
+        {/* Expandable Comments Section */}
+        {showComments && (
+          <div className="mt-4 pt-3 border-t border-gray-700">
+            <CommentsSection
+              ideaId={idea.id}
+              compact
+              onCountChange={setCommentCount}
+            />
           </div>
         )}
       </div>

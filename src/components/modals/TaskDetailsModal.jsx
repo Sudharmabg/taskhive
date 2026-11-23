@@ -4,6 +4,7 @@ import Button from '../common/Button';
 import AttachmentsSection from '../common/AttachmentsSection';
 import SubtasksSection from '../common/SubtasksSection';
 import TimeTrackingSection from '../common/TimeTrackingSection';
+import CommentsSection from '../common/CommentsSection';
 import StoryHistory, { formatDateTime } from '../common/StoryHistory';
 import apiService from '../../services/api';
 import { 
@@ -258,6 +259,9 @@ export const TaskDetailsBody = ({ task, onDataChange }) => (
 
         {/* Attachments */}
         {task.id && <AttachmentsSection storyId={task.id} />}
+
+        {/* Comments (Tasks, Epics, Bugs) */}
+        {task.id && <CommentsSection storyId={task.id} />}
 
         {/* Who created / edited it */}
         {task.id && <StoryHistory storyId={task.id} refreshKey={task.updatedAt} />}

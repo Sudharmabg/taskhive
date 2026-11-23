@@ -380,6 +380,24 @@ class ApiService {
     });
   }
 
+  // Story Comments (Tasks, Epics, Bugs)
+  getStoryComments(storyId) {
+    return this.request(`/stories/${storyId}/comments`);
+  }
+
+  addStoryComment(storyId, { content, parentId }) {
+    return this.request(`/stories/${storyId}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ content, parentId }),
+    });
+  }
+
+  deleteStoryComment(storyId, commentId) {
+    return this.request(`/stories/${storyId}/comments/${commentId}`, {
+      method: 'DELETE',
+    });
+  }
+
   // Audit trail
   getStoryHistory(storyId) {
     return this.request(`/stories/${storyId}/history`);
@@ -430,6 +448,24 @@ class ApiService {
 
   deleteIdea(ideaId) {
     return this.request(`/ideas/${ideaId}`, { method: 'DELETE' });
+  }
+
+  // Idea comments
+  getIdeaComments(ideaId) {
+    return this.request(`/ideas/${ideaId}/comments`);
+  }
+
+  addIdeaComment(ideaId, { content, parentId }) {
+    return this.request(`/ideas/${ideaId}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ content, parentId }),
+    });
+  }
+
+  deleteIdeaComment(ideaId, commentId) {
+    return this.request(`/ideas/${ideaId}/comments/${commentId}`, {
+      method: 'DELETE',
+    });
   }
 
   // Leave

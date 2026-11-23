@@ -9,6 +9,7 @@ import java.util.List;
 @Repository
 public interface DocumentCommentRepository extends JpaRepository<DocumentComment, Long> {
     List<DocumentComment> findByDocumentIdOrderByCreatedAtAsc(Long documentId);
+    long countByDocumentId(Long documentId);
     void deleteByDocumentId(Long documentId);
     void deleteByParentId(Long parentId);
 }

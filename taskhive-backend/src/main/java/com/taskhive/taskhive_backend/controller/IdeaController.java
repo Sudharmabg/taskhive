@@ -1,15 +1,19 @@
 package com.taskhive.taskhive_backend.controller;
 
 import com.taskhive.taskhive_backend.model.Idea;
+import com.taskhive.taskhive_backend.model.IdeaComment;
 import com.taskhive.taskhive_backend.model.IdeaVote;
 import com.taskhive.taskhive_backend.model.User;
+import com.taskhive.taskhive_backend.repository.IdeaCommentRepository;
 import com.taskhive.taskhive_backend.repository.IdeaRepository;
 import com.taskhive.taskhive_backend.repository.IdeaVoteRepository;
 import com.taskhive.taskhive_backend.service.CurrentUserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
@@ -27,9 +31,11 @@ public class IdeaController {
     private static final int MAX_TITLE = 150;
     private static final int MAX_DESCRIPTION = 5000;
     private static final int MAX_NOTE = 500;
+    private static final int MAX_COMMENT_LENGTH = 5000;
 
     private final IdeaRepository ideaRepository;
     private final IdeaVoteRepository voteRepository;
+    private final IdeaCommentRepository commentRepository;
     private final CurrentUserService currentUserService;
 
     @GetMapping
@@ -122,6 +128,7 @@ public class IdeaController {
 
     /** Author or admin deletes the idea and its votes. */
     @DeleteMapping("/{id}")
+    @Transactional
     public ResponseEntity<?> delete(@PathVariable Long id) {
         User user = currentUserService.get().orElse(null);
         Idea idea = find(id, user);
@@ -130,8 +137,101 @@ public class IdeaController {
             return error("You can only delete your own ideas");
         }
         voteRepository.deleteByIdeaId(id);
+        commentRepository.deleteByIdeaId(id);
         ideaRepository.delete(idea);
         log.info("Idea {} deleted by user {}", id, user.getId());
+        return ResponseEntity.ok(Map.of("success", true));
+    }
+
+    /** Comments on this idea. Structured with top-level and threaded replies. */
+    @GetMapping("/{id}/comments")
+    public ResponseEntity<?> listComments(@PathVariable Long id) {
+        User user = currentUserService.get().orElse(null);
+        Idea idea = find(id, user);
+        if (idea == null) return error("Idea not found");
+
+        List<IdeaComment> allComments = commentRepository.findByIdeaIdOrderByCreatedAtAsc(id);
+        Map<Long, Map<String, Object>> commentMap = new LinkedHashMap<>();
+        List<Map<String, Object>> topLevel = new ArrayList<>();
+
+        for (IdeaComment c : allComments) {
+            Map<String, Object> v = commentView(c, user);
+            v.put("replies", new ArrayList<Map<String, Object>>());
+            commentMap.put(c.getId(), v);
+        }
+
+        for (IdeaComment c : allComments) {
+            Map<String, Object> current = commentMap.get(c.getId());
+            if (c.getParentId() != null && commentMap.containsKey(c.getParentId())) {
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> replies = (List<Map<String, Object>>) commentMap.get(c.getParentId()).get("replies");
+                replies.add(current);
+            } else {
+                topLevel.add(current);
+            }
+        }
+
+        return ResponseEntity.ok(topLevel);
+    }
+
+    /** Add a comment or reply to an idea. */
+    @PostMapping("/{id}/comments")
+    public ResponseEntity<?> addComment(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+        User user = currentUserService.get().orElse(null);
+        if (user == null) return error("You must be signed in to comment");
+        Idea idea = find(id, user);
+        if (idea == null) return error("Idea not found");
+
+        String content = trimToNull(body.get("content"));
+        if (content == null) return error("Comment cannot be empty");
+        if (content.length() > MAX_COMMENT_LENGTH) {
+            return error("Comment must be " + MAX_COMMENT_LENGTH + " characters or fewer");
+        }
+
+        IdeaComment comment = new IdeaComment();
+        comment.setIdeaId(id);
+        comment.setCompanyId(companyId(user));
+        comment.setUserId(user.getId());
+        comment.setUserName(user.getName());
+        comment.setContent(content);
+
+        if (body.get("parentId") != null) {
+            try {
+                Long parentId = Long.parseLong(body.get("parentId").toString());
+                if (commentRepository.existsById(parentId)) {
+                    comment.setParentId(parentId);
+                }
+            } catch (NumberFormatException ignored) {}
+        }
+
+        IdeaComment saved = commentRepository.save(comment);
+        Map<String, Object> v = commentView(saved, user);
+        v.put("replies", new ArrayList<>());
+        return ResponseEntity.ok(v);
+    }
+
+    /** Delete a comment on an idea. */
+    @DeleteMapping("/{id}/comments/{commentId}")
+    @Transactional
+    public ResponseEntity<?> deleteComment(@PathVariable Long id, @PathVariable Long commentId) {
+        User user = currentUserService.get().orElse(null);
+        if (user == null) return error("You must be signed in");
+        Idea idea = find(id, user);
+        if (idea == null) return error("Idea not found");
+
+        IdeaComment comment = commentRepository.findById(commentId).orElse(null);
+        if (comment == null || !Objects.equals(comment.getIdeaId(), id)) {
+            return error("Comment not found");
+        }
+
+        boolean isAuthor = Objects.equals(comment.getUserId(), user.getId());
+        boolean isAdmin = CurrentUserService.isAdmin(user);
+        if (!isAuthor && !isAdmin) {
+            return error("You can only delete your own comments");
+        }
+
+        commentRepository.deleteByParentId(commentId);
+        commentRepository.delete(comment);
         return ResponseEntity.ok(Map.of("success", true));
     }
 
@@ -171,7 +271,7 @@ public class IdeaController {
         return idea.getAuthorId().equals(user.getId()) && idea.getStatus() == Idea.Status.NEW;
     }
 
-    private static Map<String, Object> view(Idea idea, User user, boolean votedByMe) {
+    private Map<String, Object> view(Idea idea, User user, boolean votedByMe) {
         boolean mine = idea.getAuthorId().equals(user.getId());
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("id", idea.getId());
@@ -188,8 +288,23 @@ public class IdeaController {
         m.put("mine", mine);
         m.put("canEdit", canEdit(idea, user));
         m.put("canDelete", mine || CurrentUserService.isAdmin(user));
+        m.put("commentCount", commentRepository.countByIdeaId(idea.getId()));
         m.put("createdAt", idea.getCreatedAt());
         m.put("updatedAt", idea.getUpdatedAt());
+        return m;
+    }
+
+    private static Map<String, Object> commentView(IdeaComment c, User user) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("id", c.getId());
+        m.put("ideaId", c.getIdeaId());
+        m.put("userId", c.getUserId());
+        m.put("userName", c.getUserName() != null ? c.getUserName() : "User");
+        m.put("content", c.getContent());
+        m.put("parentId", c.getParentId());
+        m.put("createdAt", c.getCreatedAt());
+        m.put("updatedAt", c.getUpdatedAt());
+        m.put("isMine", user != null && Objects.equals(c.getUserId(), user.getId()));
         return m;
     }
 

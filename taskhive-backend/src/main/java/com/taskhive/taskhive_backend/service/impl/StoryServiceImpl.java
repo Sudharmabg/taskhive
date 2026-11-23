@@ -5,6 +5,7 @@ import com.taskhive.taskhive_backend.model.Story;
 import com.taskhive.taskhive_backend.model.User;
 import com.taskhive.taskhive_backend.model.Company;
 import com.taskhive.taskhive_backend.repository.AttachmentRepository;
+import com.taskhive.taskhive_backend.repository.StoryCommentRepository;
 import com.taskhive.taskhive_backend.repository.StoryRepository;
 import com.taskhive.taskhive_backend.repository.SubtaskRepository;
 import com.taskhive.taskhive_backend.repository.CompanyRepository;
@@ -27,6 +28,7 @@ public class StoryServiceImpl implements StoryService {
     private final StoryRepository storyRepository;
     private final CompanyRepository companyRepository;
     private final AttachmentRepository attachmentRepository;
+    private final StoryCommentRepository commentRepository;
     private final SubtaskRepository subtaskRepository;
     private final ProgressService progressService;
     private final AuditService auditService;
@@ -161,6 +163,7 @@ public class StoryServiceImpl implements StoryService {
         Long sprintId = story.getSprintId();
         auditService.record(story, AuditLog.Action.DELETED, "Deleted " + story.getType() + " \"" + story.getTitle() + "\"");
         attachmentRepository.deleteByStoryId(id);
+        commentRepository.deleteByStoryId(id);
         subtaskRepository.deleteByStoryId(id);
         timeLogRepository.deleteByStoryId(id);
         // Unlink tasks/bugs that belonged to this epic

@@ -512,7 +512,7 @@ public class DocumentController {
         return CurrentUserService.isAdmin(user) || Objects.equals(doc.getUploadedBy(), user.getId());
     }
 
-    private static Map<String, Object> view(Document d, User user) {
+    private Map<String, Object> view(Document d, User user) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("id", d.getId());
         m.put("title", d.getTitle());
@@ -530,6 +530,7 @@ public class DocumentController {
         m.put("mine", Objects.equals(d.getUploadedBy(), user.getId()));
         m.put("canManage", canManage(d, user));
         m.put("canEdit", canEdit(d, user));
+        m.put("commentCount", commentRepository.countByDocumentId(d.getId()));
         m.put("createdAt", d.getCreatedAt());
         m.put("updatedAt", d.getUpdatedAt());
         return m;
