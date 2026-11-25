@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  ChatAlt2Icon, DocumentTextIcon, DownloadIcon, PencilIcon, PlusIcon, TagIcon, TrashIcon, XIcon,
+  ChatAlt2Icon, DocumentTextIcon, PencilIcon, PlusIcon, TagIcon, TrashIcon, XIcon,
 } from '@heroicons/react/outline';
 import Button from '../../components/common/Button';
 import apiService from '../../services/api';
@@ -172,8 +172,6 @@ const DocumentsPage = () => {
     }
   };
 
-  const download = (doc) => run(doc, () => apiService.downloadDocument(doc));
-
   const remove = (doc) => {
     if (!window.confirm(`Delete "${doc.title}"? The file will be removed for everyone. This can't be undone.`)) return;
     run(doc, async () => {
@@ -315,15 +313,6 @@ const DocumentsPage = () => {
                         className="text-xs font-semibold"
                       >
                         <PencilIcon className="h-3.5 w-3.5 mr-1.5" /> Open & Edit
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => download(doc)}
-                        disabled={busyId === doc.id}
-                        className="text-xs"
-                      >
-                        <DownloadIcon className="h-3.5 w-3.5 mr-1.5" /> Download
                       </Button>
                       {doc.canManage && (
                         <button

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ChatAlt2Icon, CheckCircleIcon, DocumentTextIcon, DownloadIcon,
+  ArrowsExpandIcon, ChatAlt2Icon, CheckCircleIcon, DocumentTextIcon,
   ReplyIcon, TrashIcon, XIcon,
 } from '@heroicons/react/outline';
 import Button from '../../components/common/Button';
@@ -108,6 +108,7 @@ const DocumentEditorModal = ({ doc, tagSuggestions = [], onClose, onSaved }) => 
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState('saved'); // 'saved' | 'unsaved' | 'saving'
   const [errorMessage, setErrorMessage] = useState('');
+  const [isFullScreen, setIsFullScreen] = useState(true);
 
   // Comments state
   const [comments, setComments] = useState([]);
@@ -196,12 +197,14 @@ const DocumentEditorModal = ({ doc, tagSuggestions = [], onClose, onSaved }) => 
     }
   };
 
-  // Keyboard shortcut Ctrl+S / Cmd+S
+  // Keyboard shortcuts: Ctrl+S / Cmd+S to save, Escape to close
   useEffect(() => {
     const onKeyDown = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
         saveDocument();
+      } else if (e.key === 'Escape') {
+        onClose();
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -330,13 +333,20 @@ const DocumentEditorModal = ({ doc, tagSuggestions = [], onClose, onSaved }) => 
   const resolvedCount = useMemo(() => comments.filter(c => c.resolved).length, [comments]);
 
   return (
-    /* Modal Container: Perfectly centered on screen with exact 50% / translate-y positioning */
     <div className="fixed inset-0 z-50 overflow-hidden">
-      {/* Backdrop */}
-      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
+      {/* Backdrop (visible only when in windowed modal mode) */}
+      {!isFullScreen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
+      )}
 
-      {/* Main Modal Window: Absolute center of viewport with exactly equal top, bottom, left, right margins */}
-      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[92vw] max-w-6xl h-[88vh] bg-gray-800 border border-gray-700 rounded-xl shadow-2xl flex flex-col overflow-hidden z-10">
+      {/* Main Document Window: Full screen edge-to-edge by default, or centered modal when minimized */}
+      <div
+        className={
+          isFullScreen
+            ? 'fixed inset-0 w-full h-full bg-gray-800 flex flex-col overflow-hidden z-10'
+            : 'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[92vw] max-w-6xl h-[88vh] bg-gray-800 border border-gray-700 rounded-xl shadow-2xl flex flex-col overflow-hidden z-10'
+        }
+      >
 
         {/* ── Top Header: Document Details & Actions ── */}
         <header className="px-5 py-3 bg-gray-800 border-b border-gray-700 flex-shrink-0 space-y-2.5">
@@ -397,6 +407,22 @@ const DocumentEditorModal = ({ doc, tagSuggestions = [], onClose, onSaved }) => 
                   <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${showCommentsSidebar ? 'bg-black text-[#ffc44d]' : 'bg-[#ffc44d] text-black'}`}>
                     {openCount > 0 ? openCount : comments.length}
                   </span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsFullScreen(!isFullScreen)}
+                className="text-gray-400 hover:text-white p-1.5 rounded-lg hover:bg-gray-700 transition-colors"
+                title={isFullScreen ? 'Exit full screen' : 'Full screen'}
+                aria-label={isFullScreen ? 'Exit full screen' : 'Full screen'}
+              >
+                {isFullScreen ? (
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 14h6m0 0v6m0-6L3 21m17-7h-6m0 0v6m0-6l7 7M4 10h6m0 0V4m0 6L3 3m17 7h-6m0 0V4m0 6l7-7" />
+                  </svg>
+                ) : (
+                  <ArrowsExpandIcon className="h-5 w-5" />
                 )}
               </button>
 
@@ -559,7 +585,7 @@ const DocumentEditorModal = ({ doc, tagSuggestions = [], onClose, onSaved }) => 
                 setContent(e.currentTarget.innerHTML);
                 setSaveStatus('unsaved');
               }}
-              className="w-full max-w-[850px] min-h-[900px] p-8 sm:p-12 md:p-16 bg-white text-gray-900 shadow-2xl rounded-sm border border-gray-200 document-paper-sheet outline-none focus:ring-1 focus:ring-[#ffc44d] self-start"
+              className={`w-full ${isFullScreen ? 'max-w-[950px]' : 'max-w-[850px]'} min-h-[900px] p-8 sm:p-12 md:p-16 bg-white text-gray-900 shadow-2xl rounded-sm border border-gray-200 document-paper-sheet outline-none focus:ring-1 focus:ring-[#ffc44d] self-start`}
             />
 
             {/* Floating "+ Comment" Tooltip on highlighted text */}
@@ -801,18 +827,6 @@ const DocumentEditorModal = ({ doc, tagSuggestions = [], onClose, onSaved }) => 
           </div>
 
           <div className="flex items-center gap-2">
-            {!isNew && (
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => apiService.downloadDocument(doc)}
-                className="text-xs"
-              >
-                <DownloadIcon className="h-4 w-4 mr-1.5" />
-                Download
-              </Button>
-            )}
             <Button
               type="button"
               variant="secondary"
