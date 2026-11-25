@@ -38,7 +38,9 @@ const Sidebar = () => {
     { name: 'Members', href: '/members', icon: UsersIcon },
     ...(userRole === 'admin' ? [
       { name: 'Teams', href: '/teams', icon: UserGroupIcon },
-      { name: 'Sprints', href: '/sprints', icon: CalendarIcon }, // Admin can manage all sprints
+    ] : []),
+    { name: 'Sprints', href: '/sprints', icon: CalendarIcon },
+    ...(userRole === 'admin' ? [
       { name: 'Analytics', href: '/analytics', icon: ChartBarIcon },
       { name: 'Audit Log', href: '/audit', icon: ShieldCheckIcon },
     ] : [])

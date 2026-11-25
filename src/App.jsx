@@ -77,8 +77,8 @@ function App() {
             <Route path="bugs/:storyId" element={<StoryDetailPage />} />
             <Route path="teams" element={<AdminRoute><TeamManagement /></AdminRoute>} />
             <Route path="current-sprint" element={<SprintDetailPage />} />
-            <Route path="sprints" element={<AdminRoute><SprintManagement /></AdminRoute>} />
-            <Route path="sprints/:sprintId" element={<AdminRoute><SprintDetailPage /></AdminRoute>} />
+            <Route path="sprints" element={<SprintManagement />} />
+            <Route path="sprints/:sprintId" element={<SprintDetailPage />} />
             <Route path="analytics" element={<AdminRoute><Analytics /></AdminRoute>} />
             <Route path="audit" element={<AdminRoute><AuditLog /></AdminRoute>} />
             <Route path="search" element={<SearchResults />} />
